@@ -6,7 +6,6 @@
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/index/rtree.hpp>
 
-#include <memory>
 #include <vector>
 
 namespace decentralized_path_auction {
@@ -30,6 +29,7 @@ public:
     };
 
     using NodePtr = std::shared_ptr<Node>;
+    using Nodes = std::vector<NodePtr>;
     using RTreeNode = std::pair<Point2D, NodePtr>;
     using RTree = bg::index::rtree<RTreeNode, bg::index::rstar<16>>;
 

@@ -10,6 +10,7 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wshadow -Og -g
 
 add_library(decentralized_path_auction
     src/graph.cpp
+    src/path_search.cpp
 )
 target_include_directories(decentralized_path_auction PUBLIC include)
 

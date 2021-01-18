@@ -1,10 +1,10 @@
 #include <decentralized_path_auction/graph.hpp>
+#include <decentralized_path_auction/path_search.hpp>
 #include <gtest/gtest.h>
 
 using namespace decentralized_path_auction;
 
-void make_pathway(
-        Graph& graph, std::vector<Graph::NodePtr>& pathway, Point2D a, Point2D b, size_t n) {
+void make_pathway(Graph& graph, Graph::Nodes& pathway, Point2D a, Point2D b, size_t n) {
     ASSERT_GT(n, 1);
     auto pos = a;
     auto inc = b;
@@ -40,7 +40,7 @@ void print_graph(const Graph& graph) {
 TEST(graph, insert_nearest_remove) {
     Graph graph;
     // test insert
-    std::vector<Graph::NodePtr> pathway;
+    Graph::Nodes pathway;
     make_pathway(graph, pathway, {0, 0}, {1, 10}, 11);
     // test duplicate position rejection
     auto duplicate_node = std::make_shared<Graph::Node>(Point2D{0, 0});

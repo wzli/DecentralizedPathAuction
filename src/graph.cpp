@@ -25,7 +25,7 @@ bool Graph::removeNode(Graph::NodePtr node) {
 
 Graph::NodePtr Graph::queryNearestNode(Point2D position) const {
     auto query = _nodes.qbegin(bg::index::nearest(position, 1));
-    return query == _nodes.qend() ? nullptr : query->second;
+    return query == _nodes.qend() ? nullptr : std::move(query->second);
 }
 
 }  // namespace decentralized_path_auction
