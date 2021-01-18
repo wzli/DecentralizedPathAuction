@@ -1,5 +1,7 @@
 #pragma once
 
+#include <decentralized_path_auction/auction.hpp>
+
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/index/rtree.hpp>
@@ -15,19 +17,25 @@ using Point2D = bg::model::d2::point_xy<float>;
 class Graph {
 public:
     struct Node {
+        Auction auction;
+        std::vector<std::shared_ptr<Node>> edges;
         const Point2D position;
-        std::vector<std::shared_ptr<Node>> edges = {};
-        float base_toll = 0;
-        enum State { DEFAULT, NO_PARKING, DELETED } state = DEFAULT;
+        enum State { DEFAULT, NO_PARKING, DELETED } state;
+
+        // Constructor
+        Node(Point2D position_, float base_toll_ = 0, State state_ = DEFAULT)
+                : auction(base_toll_)
+                , position(position_)
+                , state(state_) {}
     };
 
     using NodePtr = std::shared_ptr<Node>;
     using RTreeNode = std::pair<Point2D, NodePtr>;
     using RTree = bg::index::rtree<RTreeNode, bg::index::rstar<16>>;
 
-    NodePtr insertNode(Point2D position);
+    bool insertNode(NodePtr node);
+    bool removeNode(NodePtr node);
     NodePtr queryNearestNode(Point2D position) const;
-    bool removeNode(const NodePtr& node);
     const RTree& getNodes() const { return _nodes; }
 
 private:

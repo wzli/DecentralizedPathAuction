@@ -3,22 +3,23 @@
 
 using namespace decentralized_path_auction;
 
-std::vector<Graph::NodePtr> make_pathway(Graph& graph, Point2D a, Point2D b, size_t n) {
-    assert(n > 1);
+void make_pathway(
+        Graph& graph, std::vector<Graph::NodePtr>& pathway, Point2D a, Point2D b, size_t n) {
+    ASSERT_GT(n, 1);
     auto pos = a;
     auto inc = b;
     bg::subtract_point(inc, a);
     bg::divide_value(inc, n - 1);
-    std::vector<Graph::NodePtr> nodes;
+    pathway.clear();
     for (size_t i = 0; i < n; ++i, bg::add_point(pos, inc)) {
-        auto node = graph.insertNode(pos);
+        auto node = std::make_shared<Graph::Node>(pos);
+        ASSERT_TRUE(graph.insertNode(node));
         if (i > 0) {
-            node->edges.push_back(nodes.back());
-            nodes.back()->edges.push_back(node);
+            node->edges.push_back(pathway.back());
+            pathway.back()->edges.push_back(node);
         }
-        nodes.push_back(std::move(node));
+        pathway.push_back(std::move(node));
     }
-    return nodes;
 }
 
 void print_graph(const Graph& graph) {
@@ -39,7 +40,11 @@ void print_graph(const Graph& graph) {
 TEST(graph, insert_nearest_remove) {
     Graph graph;
     // test insert
-    auto pathway = make_pathway(graph, {0, 0}, {1, 10}, 11);
+    std::vector<Graph::NodePtr> pathway;
+    make_pathway(graph, pathway, {0, 0}, {1, 10}, 11);
+    // test duplicate position rejection
+    auto duplicate_node = std::make_shared<Graph::Node>(Point2D{0, 0});
+    ASSERT_FALSE(graph.insertNode(duplicate_node));
     ASSERT_EQ(pathway.size(), 11);
     ASSERT_EQ(pathway.size(), graph.getNodes().size());
     // test nearest queries

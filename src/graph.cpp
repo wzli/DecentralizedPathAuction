@@ -2,23 +2,30 @@
 
 namespace decentralized_path_auction {
 
-Graph::NodePtr Graph::insertNode(Point2D position) {
-    auto new_node = std::make_shared<Node>(Node{position});
-    _nodes.insert(RTreeNode(position, new_node));
-    return new_node;
+bool Graph::insertNode(Graph::NodePtr node) {
+    if (!node || node->state == Node::DELETED) {
+        return false;
+    }
+    // reject nodes with duplicate positions
+    auto nearest_node = queryNearestNode(node->position);
+    if (nearest_node && bg::equals(nearest_node->position, node->position)) {
+        return false;
+    }
+    _nodes.insert(RTreeNode(node->position, std::move(node)));
+    return true;
 }
 
-Graph::NodePtr Graph::queryNearestNode(Point2D position) const {
-    auto query = _nodes.qbegin(bg::index::nearest(position, 1));
-    return query == _nodes.qend() ? nullptr : query->second;
-}
-
-bool Graph::removeNode(const Graph::NodePtr& node) {
+bool Graph::removeNode(Graph::NodePtr node) {
     if (!node) {
         return false;
     }
     node->state = Node::DELETED;
     return _nodes.remove(RTreeNode(node->position, std::move(node)));
+}
+
+Graph::NodePtr Graph::queryNearestNode(Point2D position) const {
+    auto query = _nodes.qbegin(bg::index::nearest(position, 1));
+    return query == _nodes.qend() ? nullptr : query->second;
 }
 
 }  // namespace decentralized_path_auction
