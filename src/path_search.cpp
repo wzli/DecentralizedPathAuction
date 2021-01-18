@@ -1,5 +1,6 @@
 #include <decentralized_path_auction/path_search.hpp>
 
+#include <algorithm>
 #include <cassert>
 
 namespace decentralized_path_auction {
@@ -17,14 +18,24 @@ static float distance_to_nodes(const Graph& nodes, Point2D position) {
     return nearest ? bg::distance(nearest->position, position) : 0;
 }
 
-PathSearch::Error PathSearch::resetSearch(Graph::NodePtr start_node, Graph::Nodes goal_nodes) {
-    // reset start node
-    if (!node_valid(start_node)) {
-        return INVALID_START_NODE;
+void PathSearch::buildCollisionBlacklist(const Auction& auction, float price) {
+    _collision_blacklist_upper.clear();
+    _collision_blacklist_lower.clear();
+    for (auto& [bid_price, bidder] : auction.getBids()) {
+        for (int dir = -1; dir < 1; dir += 2) {
+            Auction::Bidder collision_bidder = {bidder.name, bidder.index + dir};
+            if (bid_price > price) {
+                _collision_blacklist_upper.push_back(std::move(collision_bidder));
+            } else if (bid_price < price) {
+                _collision_blacklist_lower.push_back(std::move(collision_bidder));
+            }
+        }
     }
-    _path.stops.clear();
-    _path.stops.push_back(
-            Path::Stop{*start_node->auction.getBids().begin(), std::move(start_node)});
+    std::sort(_collision_blacklist_upper.begin(), _collision_blacklist_upper.end());
+    std::sort(_collision_blacklist_lower.begin(), _collision_blacklist_lower.end());
+}
+
+PathSearch::Error PathSearch::resetSearch(Graph::NodePtr start_node, Graph::Nodes goal_nodes) {
     // reset goal nodes
     _goal_nodes = Graph();
     for (auto& goal_node : goal_nodes) {
@@ -32,7 +43,15 @@ PathSearch::Error PathSearch::resetSearch(Graph::NodePtr start_node, Graph::Node
             return INVALID_GOAL_NODE;
         }
     }
-    ++_search_id;
+    // initialize start node data
+    if (!node_valid(start_node)) {
+        return INVALID_START_NODE;
+    }
+    auto winning_bid = start_node->auction.getBids().rbegin();
+    winning_bid->second.user_data = std::make_shared<Auction::UserData>(
+            Auction::UserData{++_search_id, distance_to_nodes(_goal_nodes, start_node->position)});
+    _path.stops.clear();
+    _path.stops.push_back(Path::Stop{*winning_bid, std::move(start_node)});
     return SUCCESS;
 }
 
@@ -44,6 +63,10 @@ PathSearch::Error PathSearch::iterateSearch() {
     // iterate through each stop from the end
     for (auto stop = _path.stops.rbegin(); stop != _path.stops.rend(); ++stop) {
         assert(node_valid(stop->node) && "node should exist");
+        // TODO: handle when reference bid doesn't exist
+        // build blacklist of bids on adjacent nodes that will cause collision
+        buildCollisionBlacklist(
+                stop->node->auction, stop->reference_bid.second.user_data->cost_estimate);
         // remove edges to deleted nodes
         erase_invalid_nodes(stop->node->edges);
         // loop over each adjacent node
@@ -59,7 +82,8 @@ PathSearch::Error PathSearch::iterateSearch() {
             auto& bids = adj_node->auction.getBids();
             size_t rank = bids.size();
             for (auto& bid : bids) {
-                auto& [price, bidder] = bid;
+                auto& [bid_price, bidder] = bid;
+                // skip if bid causes collision
                 // create user data if it doesn't exist
                 if (!bidder.user_data) {
                     bidder.user_data = std::make_shared<Auction::UserData>();
@@ -70,13 +94,8 @@ PathSearch::Error PathSearch::iterateSearch() {
                     bidder.user_data->cost_estimate =
                             distance_to_nodes(_goal_nodes, adj_node->position);
                 };
-                // update rank cost if rank changed
-                if (bidder.user_data->rank != --rank) {
-                    bidder.user_data->rank = rank;
-                    assert(_config.rank_cost && "rank_cost function is required");
-                    float rank_cost = _config.rank_cost(rank);
-                }
                 // remove rank cross-overs between adjacent nodes to prevent collisions
+                // TODO: lookup collision black list
             }
         }
     }

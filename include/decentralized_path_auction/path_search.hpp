@@ -6,10 +6,8 @@
 namespace decentralized_path_auction {
 
 struct Auction::UserData {
-    size_t search_id = 0;
-    size_t rank = -1;
-    float rank_cost = 0;
-    float cost_estimate = 0;
+    size_t search_id;
+    float cost_estimate;
 };
 
 class PathSearch {
@@ -47,10 +45,13 @@ public:
     Config& getConfig() { return _config; }
 
 private:
+    void buildCollisionBlacklist(const Auction&, float price);
+
     Graph _graph;
     Config _config;
     Graph _goal_nodes;
     Path _path;
+    std::vector<Auction::Bidder> _collision_blacklist_upper, _collision_blacklist_lower;
     size_t _search_id;
 };
 

@@ -16,6 +16,9 @@ public:
         mutable std::shared_ptr<UserData> user_data = nullptr;
 
         bool operator==(const Bidder& rhs) const { return name == rhs.name && index == rhs.index; }
+        bool operator<(const Bidder& rhs) const {
+            return index == rhs.index ? name < rhs.name : index < rhs.index;
+        }
     };
 
     using Bid = std::pair<float, Bidder>;
