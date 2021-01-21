@@ -59,6 +59,54 @@ TEST(graph, insert_nearest_remove) {
     // print_graph(graph);
 }
 
+TEST(auction, insert_remove_bids) {
+    Auction auction(10);
+    EXPECT_EQ(auction.getStartPrice(), 10);
+    EXPECT_EQ(auction.getBids().size(), 1);
+    // reject less than start price
+    EXPECT_FALSE(auction.insertBid({"A", 0, 5}));
+    EXPECT_EQ(auction.getBids().size(), 1);
+    // valid insert
+    EXPECT_TRUE(auction.insertBid({"A", 0, 11}));
+    EXPECT_EQ(auction.getBids().size(), 2);
+    // reject double insert
+    EXPECT_FALSE(auction.insertBid({"A", 0, 11}));
+    EXPECT_FALSE(auction.insertBid({"B", 1, 11}));
+    // reject false remove
+    EXPECT_FALSE(auction.removeBid({"B", 1, 11}));
+    // valid remove
+    EXPECT_TRUE(auction.removeBid({"A", 0, 11}));
+    EXPECT_EQ(auction.getBids().size(), 1);
+}
+
+namespace decentralized_path_auction {
+struct TestClass {
+    static void test_collision_checks() {
+        Graph graph;
+        Graph::Nodes pathway;
+        make_pathway(graph, pathway, {0, 0}, {1, 1}, 2);
+        PathSearch::Config config{"A"};
+        PathSearch path_search(std::move(graph), std::move(config));
+        ASSERT_TRUE(pathway[0]->auction.insertBid({"B", 5, 5}));
+        ASSERT_TRUE(pathway[1]->auction.insertBid({"B", 6, 6}));
+        path_search.buildCollisionBids(pathway[0]->auction.getBids(), 4);
+        ASSERT_FALSE(path_search.checkCollisionBids(pathway[1]->auction.getBids(), 4));
+        ASSERT_FALSE(path_search.checkCollisionBids(pathway[1]->auction.getBids(), 5));
+        ASSERT_TRUE(path_search.checkCollisionBids(pathway[1]->auction.getBids(), 7));
+        ASSERT_TRUE(path_search.checkCollisionBids(pathway[1]->auction.getBids(), 8));
+        path_search.buildCollisionBids(pathway[0]->auction.getBids(), 6);
+        ASSERT_TRUE(path_search.checkCollisionBids(pathway[1]->auction.getBids(), 4));
+        ASSERT_TRUE(path_search.checkCollisionBids(pathway[1]->auction.getBids(), 5));
+        ASSERT_FALSE(path_search.checkCollisionBids(pathway[1]->auction.getBids(), 7));
+        ASSERT_FALSE(path_search.checkCollisionBids(pathway[1]->auction.getBids(), 8));
+    }
+};
+}  // namespace decentralized_path_auction
+
+TEST(path_search, collision_checks) {
+    TestClass::test_collision_checks();
+}
+
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

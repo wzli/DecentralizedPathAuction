@@ -8,61 +8,54 @@ namespace decentralized_path_auction {
 
 class Auction {
 public:
-    struct UserData;
-
-    struct Bidder {
-        std::string name;
+    struct Bid {
+        std::string bidder;
         size_t index;
-        mutable std::shared_ptr<UserData> user_data = nullptr;
+        float price;
 
-        bool operator==(const Bidder& rhs) const { return name == rhs.name && index == rhs.index; }
-        bool operator<(const Bidder& rhs) const {
-            return index == rhs.index ? name < rhs.name : index < rhs.index;
+        // compare operator
+        bool operator<(const Bid& rhs) const {
+            return price == rhs.price
+                           ? (index == rhs.index ? bidder < rhs.bidder : index < rhs.index)
+                           : price < rhs.price;
         }
     };
 
-    using Bid = std::pair<float, Bidder>;
-    using Bids = std::map<float, Bidder>;
+    struct UserData;
+    using Bids = std::map<Bid, std::shared_ptr<UserData>>;
 
     Auction(float start_price)
-            : _bids({{start_price, {"start_price", 0}}}) {}
+            : _bids({{{"start_price", 0, start_price}, nullptr}}) {}
 
     bool insertBid(Bid bid) {
         // must be greater than start price
-        if (bid.first <= getStartPrice()) {
+        if (bid.price <= getStartPrice()) {
             return false;
         }
         // insert only if same price bid doesn't already exist
-        auto result = _bids.emplace(std::move(bid));
-        _event_count += result.second;
-        return result.second;
+        auto found = _bids.lower_bound({"", 0, bid.price});
+        if (found != _bids.end() && found->first.price == bid.price) {
+            return false;
+        }
+        return _bids.insert({std::move(bid), nullptr}).second;
     };
 
     bool removeBid(const Bid& bid) {
         // don't remove start price
-        if (bid.first == getStartPrice()) {
+        if (bid.price == getStartPrice()) {
             return false;
         }
-        auto found = _bids.find(bid.first);
-        if (found == _bids.end() || !(found->second == bid.second)) {
-            return false;
-        }
-        _bids.erase(found);
-        ++_event_count;
-        return true;
+        return _bids.erase(bid);
     };
 
+    Bids& getBids() { return _bids; }
     const Bids& getBids() const { return _bids; }
-    float getStartPrice() const { return _bids.begin()->first; }
+    float getStartPrice() const { return _bids.begin()->first.price; }
 
-    // TODO: below
-    // gotta write unit tests for this file
-    // if you occupy a node, you bid float max
-    void shiftBids();
+    // TODO: if you occupy a node, you bid float max
 
 private:
     Bids _bids;
-    size_t _event_count;
 };
 
 }  // namespace decentralized_path_auction

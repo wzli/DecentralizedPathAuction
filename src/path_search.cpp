@@ -9,6 +9,10 @@ static constexpr auto node_valid = [](const Graph::NodePtr& node) {
     return !node || node->state == Graph::Node::DELETED;
 };
 
+static constexpr auto bid_compare = [](const Auction::Bid& a, const Auction::Bid& b) {
+    return a.index == b.index ? a.bidder < b.bidder : a.index < b.index;
+};
+
 static void erase_invalid_nodes(Graph::Nodes& nodes) {
     nodes.erase(std::remove_if(nodes.begin(), nodes.end(), node_valid), nodes.end());
 }
@@ -18,21 +22,37 @@ static float distance_to_nodes(const Graph& nodes, Point2D position) {
     return nearest ? bg::distance(nearest->position, position) : 0;
 }
 
-void PathSearch::buildCollisionBlacklist(const Auction& auction, float price) {
-    _collision_blacklist_upper.clear();
-    _collision_blacklist_lower.clear();
-    for (auto& [bid_price, bidder] : auction.getBids()) {
-        for (int dir = -1; dir < 1; dir += 2) {
-            Auction::Bidder collision_bidder = {bidder.name, bidder.index + dir};
-            if (bid_price > price) {
-                _collision_blacklist_upper.push_back(std::move(collision_bidder));
-            } else if (bid_price < price) {
-                _collision_blacklist_lower.push_back(std::move(collision_bidder));
-            }
+void PathSearch::buildCollisionBids(const Auction::Bids& bids, float price) {
+    _collision_bids_upper.clear();
+    _collision_bids_lower.clear();
+    for (auto bid = std::next(bids.begin()); bid != bids.end(); ++bid) {
+        // filter out your own bids
+        if (bid->first.bidder == _config.agent_id) {
+            continue;
+        }
+        for (int dir = -1; dir <= 1; dir += 2) {
+            (bid->first.price > price ? _collision_bids_upper : _collision_bids_lower)
+                    .push_back(Auction::Bid{bid->first.bidder, bid->first.index + dir, 0});
         }
     }
-    std::sort(_collision_blacklist_upper.begin(), _collision_blacklist_upper.end());
-    std::sort(_collision_blacklist_lower.begin(), _collision_blacklist_lower.end());
+    std::sort(_collision_bids_upper.begin(), _collision_bids_upper.end(), bid_compare);
+    std::sort(_collision_bids_lower.begin(), _collision_bids_lower.end(), bid_compare);
+}
+
+bool PathSearch::checkCollisionBids(const Auction::Bids& bids, float price) {
+    for (auto bid = std::next(bids.begin()); bid != bids.end(); ++bid) {
+        // filter out your own bids
+        if (bid->first.bidder == _config.agent_id) {
+            continue;
+        }
+        const auto& collision_bids =
+                bid->first.price > price ? _collision_bids_lower : _collision_bids_upper;
+        if (std::binary_search(
+                    collision_bids.begin(), collision_bids.end(), bid->first, bid_compare)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 PathSearch::Error PathSearch::resetSearch(Graph::NodePtr start_node, Graph::Nodes goal_nodes) {
@@ -47,11 +67,12 @@ PathSearch::Error PathSearch::resetSearch(Graph::NodePtr start_node, Graph::Node
     if (!node_valid(start_node)) {
         return INVALID_START_NODE;
     }
-    auto winning_bid = start_node->auction.getBids().rbegin();
-    winning_bid->second.user_data = std::make_shared<Auction::UserData>(
+    auto& [bid, data] = *start_node->auction.getBids().rbegin();
+    data = std::make_shared<Auction::UserData>(
             Auction::UserData{++_search_id, distance_to_nodes(_goal_nodes, start_node->position)});
+    // add start node to path
     _path.stops.clear();
-    _path.stops.push_back(Path::Stop{*winning_bid, std::move(start_node)});
+    _path.stops.push_back(Path::Stop{bid, std::move(start_node)});
     return SUCCESS;
 }
 
@@ -62,37 +83,47 @@ PathSearch::Error PathSearch::iterateSearch() {
     assert(!_path.stops.empty() && "expect first stop to be start node");
     // iterate through each stop from the end
     for (auto stop = _path.stops.rbegin(); stop != _path.stops.rend(); ++stop) {
-        assert(node_valid(stop->node) && "node should exist");
-        // TODO: handle when reference bid doesn't exist
+        if (!node_valid(stop->node)) {
+            if (stop + 1 == _path.stops.rend()) {
+                return INVALID_START_NODE;
+            };
+            // TODO: handle when node in path is deleted
+        }
+        auto& bids = stop->node->auction.getBids();
+        auto found_bid = bids.find(stop->bid);
+        if (found_bid == bids.end()) {
+            // TODO: handle when reference bid doesn't exist
+        }
         // build blacklist of bids on adjacent nodes that will cause collision
-        buildCollisionBlacklist(
-                stop->node->auction, stop->reference_bid.second.user_data->cost_estimate);
+        buildCollisionBids(bids, found_bid->second->cost_estimate);
         // remove edges to deleted nodes
         erase_invalid_nodes(stop->node->edges);
         // loop over each adjacent node
         for (auto& adj_node : stop->node->edges) {
             assert(node_valid(adj_node) && "adj node should exist");
+            // edge cost is proportional to distance
             float edge_cost = bg::distance(stop->node->position, adj_node->position);
             // add user provided traversal cost to edge cost
             if (_config.traversal_cost) {
                 auto prev_node = stop + 1 == _path.stops.rend() ? nullptr : (stop + 1)->node;
                 edge_cost += _config.traversal_cost(std::move(prev_node), stop->node, adj_node);
             }
-            // loop over each bid in auction
-            auto& bids = adj_node->auction.getBids();
-            size_t rank = bids.size();
-            for (auto& bid : bids) {
-                auto& [bid_price, bidder] = bid;
-                // skip if bid causes collision
+            // loop over each bid in auction of the adjacent node
+            auto& adj_bids = adj_node->auction.getBids();
+            size_t rank = adj_bids.size();
+            for (auto& [bid, data] : adj_bids) {
+                // skip if the bid causes collision
+                if (checkCollisionBids(adj_bids, bid.price)) {
+                    continue;
+                }
                 // create user data if it doesn't exist
-                if (!bidder.user_data) {
-                    bidder.user_data = std::make_shared<Auction::UserData>();
+                if (!data) {
+                    data = std::make_shared<Auction::UserData>();
                 }
                 // reset cost estimate when search id changes
-                if (bidder.user_data->search_id != _search_id) {
-                    bidder.user_data->search_id = _search_id;
-                    bidder.user_data->cost_estimate =
-                            distance_to_nodes(_goal_nodes, adj_node->position);
+                if (data->search_id != _search_id) {
+                    data->search_id = _search_id;
+                    data->cost_estimate = distance_to_nodes(_goal_nodes, adj_node->position);
                 };
                 // remove rank cross-overs between adjacent nodes to prevent collisions
                 // TODO: lookup collision black list
