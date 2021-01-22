@@ -29,7 +29,7 @@ public:
         struct Stop {
             Graph::NodePtr node;
             float price;
-            float travel_time;
+            float time_estimate;
         };
 
         std::vector<Stop> stops;

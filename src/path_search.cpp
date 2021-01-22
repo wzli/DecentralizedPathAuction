@@ -45,31 +45,40 @@ PathSearch::Error PathSearch::iterateSearch() {
     }
     assert(!_path.stops.empty() && "expect first stop to be start node");
     // iterate through each stop from the end
-    for (auto stop = _path.stops.rbegin(); stop != _path.stops.rend(); ++stop) {
-        if (!node_valid(stop->node)) {
-            if (stop + 1 == _path.stops.rend()) {
+    for (int stop_index = _path.stops.size() - 1; stop_index >= 0; --stop_index) {
+        auto& stop = _path.stops[stop_index];
+        if (!node_valid(stop.node)) {
+            if (stop_index == 0) {
                 return INVALID_START_NODE;
             };
             // TODO: handle when node in path is deleted
         }
-        auto& auction = stop->node->auction;
+        auto& auction = stop.node->auction;
         auto& bids = auction.getBids();
-        auto found_bid = bids.find(stop->price);
+        auto found_bid = bids.find(stop.price);
         if (found_bid == bids.end()) {
             // TODO: handle when reference bid doesn't exist
         }
         // remove edges to deleted nodes
-        erase_invalid_nodes(stop->node->edges);
+        erase_invalid_nodes(stop.node->edges);
+        // store the best branch found
+        float min_cost = std::numeric_limits<float>::max();
+        Path::Stop best_stop{nullptr, 0, 0};
         // loop over each adjacent node
-        for (auto& adj_node : stop->node->edges) {
+        for (auto& adj_node : stop.node->edges) {
             assert(node_valid(adj_node) && "adj node should exist");
-            auto prev_node = stop + 1 == _path.stops.rend() ? nullptr : (stop + 1)->node;
-            float travel_time = _config.travel_time(std::move(prev_node), stop->node, adj_node);
+            auto prev_node = stop_index == 0 ? nullptr : (&stop - 1)->node;
+            float base_time_estimate =
+                    stop.time_estimate +
+                    _config.travel_time(std::move(prev_node), stop.node, adj_node);
             // loop over each bid in auction of the adjacent node
             auto& adj_bids = adj_node->auction.getBids();
-            for (auto& [_, bid] : adj_bids) {
+            float bid_time = 0;
+            for (auto adj_bid = adj_bids.rbegin(); adj_bid != adj_bids.rend(); ++adj_bid) {
+                auto& [_, bid] = *adj_bid;
+                bid_time = std::max(bid_time, bid.sumTravelTime());
                 // skip if the bid causes collision
-                if (auction.checkCollision(stop->price, bid.price, adj_bids, _config.agent_id)) {
+                if (auction.checkCollision(stop.price, bid.price, adj_bids, _config.agent_id)) {
                     continue;
                 }
                 // reset cost estimate when search id changes
@@ -77,7 +86,24 @@ PathSearch::Error PathSearch::iterateSearch() {
                     bid.search_id = _search_id;
                     bid.cost_estimate = distance_to_nodes(_goal_nodes, adj_node->position);
                 };
+                float time_estimate = std::max(bid_time, base_time_estimate);
+                float time_cost = time_estimate - stop.time_estimate;
+                float cost_estimate = bid.cost_estimate + bid.price + time_cost;
+                if (cost_estimate < min_cost) {
+                    min_cost = cost_estimate;
+                    best_stop = {adj_node, bid.price, time_estimate};
+                }
             }
+        }
+        assert(best_stop.node);
+        stop.time_estimate = best_stop.time_estimate;
+        found_bid->second.cost_estimate = min_cost;
+
+        if (stop_index + 1 == _path.stops.size()) {
+            _path.stops.push_back(std::move(best_stop));
+        } else if ((&stop + 1)->node != best_stop.node || (&stop + 1)->price != best_stop.price) {
+            _path.stops.resize(stop_index + 1);
+            _path.stops.push_back(std::move(best_stop));
         }
     }
     return SUCCESS;

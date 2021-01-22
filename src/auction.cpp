@@ -57,7 +57,7 @@ bool Auction::removeBid(const Bid& bid) {
 
 bool Auction::checkCollision(float src_price, float dst_price, const Auction::Bids& dst_bids,
         const std::string& exclude_bidder) const {
-    for (auto dst_bid = std::next(dst_bids.begin()); dst_bid != dst_bids.end(); ++dst_bid) {
+    for (auto dst_bid = ++dst_bids.begin(); dst_bid != dst_bids.end(); ++dst_bid) {
         if (dst_bid->second.bidder == exclude_bidder) {
             continue;
         }
