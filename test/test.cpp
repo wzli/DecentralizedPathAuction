@@ -119,6 +119,8 @@ TEST(auction, collision_checks) {
     Auction::Bid* prev = nullptr;
     ASSERT_TRUE(pathway[0]->auction.insertBid({"B", 5}, prev));
     ASSERT_TRUE(pathway[1]->auction.insertBid({"B", 6}, prev));
+    prev = nullptr;
+    ASSERT_TRUE(pathway[1]->auction.insertBid({"A", 5}, prev));
     auto& bids = pathway[1]->auction.getBids();
     ASSERT_FALSE(pathway[0]->auction.checkCollision(3, 4, bids));
     ASSERT_FALSE(pathway[0]->auction.checkCollision(3, 5, bids));

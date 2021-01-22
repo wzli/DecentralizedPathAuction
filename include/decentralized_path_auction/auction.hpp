@@ -16,12 +16,14 @@ public:
         // search cache
         mutable size_t search_id = 0;
         mutable float cost_estimate = 0;
+
+        float sumTravelTime() const { return travel_time + (prev ? prev->sumTravelTime() : 0); };
     };
 
     using Bids = std::map<float, Bid>;
 
     Auction(float start_price)
-            : _bids({{start_price, {"", start_price}}}) {}
+            : _bids({{start_price, {"", start_price, 0}}}) {}
 
     bool insertBid(Bid bid, Bid*& prev);
     bool removeBid(const Bid& bid);
