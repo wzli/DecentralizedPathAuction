@@ -14,22 +14,22 @@ public:
         EMPTY_GOAL_NODES,
     };
 
-    template <int Multiplier>
-    static float linearRankCost(Graph::NodePtr, size_t rank) {
-        return rank * Multiplier;
-    }
+    using TravelTime = std::function<float(
+            const Graph::NodePtr& prev, const Graph::NodePtr& cur, const Graph::NodePtr& next)>;
 
     struct Config {
         std::string agent_id;
-        std::function<float(Graph::NodePtr, size_t)> rank_cost = linearRankCost<10>;
-        std::function<float(Graph::NodePtr, Graph::NodePtr, Graph::NodePtr)> traversal_cost =
-                nullptr;
+        TravelTime travel_time = [](const Graph::NodePtr&, const Graph::NodePtr& cur,
+                                         const Graph::NodePtr& next) {
+            return bg::distance(cur->position, next->position);
+        };
     };
 
     struct Path {
         struct Stop {
-            Auction::Bid bid;
             Graph::NodePtr node;
+            float price;
+            float travel_time;
         };
 
         std::vector<Stop> stops;
@@ -45,23 +45,15 @@ public:
     Graph& getGraph() { return _graph; }
     Config& getConfig() { return _config; }
 
+    bool checkCollision(const Auction::Bids& from_bids, const Auction::Bids& to_bids,
+            float from_price, float to_price) const;
+
 private:
-    friend class TestClass;
-
-    void buildCollisionBids(const Auction::Bids&, float price);
-    bool checkCollisionBids(const Auction::Bids&, float price);
-
     Graph _graph;
     Config _config;
     Graph _goal_nodes;
     Path _path;
-    std::vector<Auction::Bid> _collision_bids_upper, _collision_bids_lower;
     size_t _search_id;
-};
-
-struct Auction::UserData {
-    size_t search_id;
-    float cost_estimate;
 };
 
 }  // namespace decentralized_path_auction

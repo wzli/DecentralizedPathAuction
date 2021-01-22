@@ -63,48 +63,75 @@ TEST(auction, insert_remove_bids) {
     Auction auction(10);
     EXPECT_EQ(auction.getStartPrice(), 10);
     EXPECT_EQ(auction.getBids().size(), 1);
-    // reject less than start price
-    EXPECT_FALSE(auction.insertBid({"A", 0, 5}));
+    // reject empty bidder
+    Auction::Bid* prev = nullptr;
+    EXPECT_FALSE(auction.insertBid({"", 11}, prev));
+    EXPECT_FALSE(prev);
     EXPECT_EQ(auction.getBids().size(), 1);
+    // reject less than start price
+    EXPECT_FALSE(auction.insertBid({"A", 5}, prev));
     // valid insert
-    EXPECT_TRUE(auction.insertBid({"A", 0, 11}));
+    EXPECT_TRUE(auction.insertBid({"A", 11}, prev));
+    auto first = prev;
     EXPECT_EQ(auction.getBids().size(), 2);
+    EXPECT_TRUE(prev);
+    EXPECT_EQ(prev->bidder, "A");
+    EXPECT_FALSE(prev->prev);
+    EXPECT_FALSE(prev->next);
     // reject double insert
-    EXPECT_FALSE(auction.insertBid({"A", 0, 11}));
-    EXPECT_FALSE(auction.insertBid({"B", 1, 11}));
+    EXPECT_FALSE(auction.insertBid({"A", 11}, prev));
+    // reject bidder mismatch
+    EXPECT_FALSE(auction.insertBid({"B", 12}, prev));
+    // insert linked bids
+    EXPECT_TRUE(auction.insertBid({"A", 12}, prev));
+    EXPECT_TRUE(auction.insertBid({"A", 13}, prev));
+    EXPECT_TRUE(auction.insertBid({"A", 14}, prev));
+    auto last = prev;
+    // test links
+    for (int i = 14; prev; prev = prev->prev, --i) {
+        EXPECT_EQ(prev->price, i);
+    }
+    prev = first;
+    for (int i = 11; prev; prev = prev->next, ++i) {
+        EXPECT_EQ(prev->price, i);
+    }
+    EXPECT_EQ(auction.getBids().size(), 5);
     // reject false remove
     EXPECT_FALSE(auction.removeBid({"B", 1, 11}));
     // valid remove
-    EXPECT_TRUE(auction.removeBid({"A", 0, 11}));
-    EXPECT_EQ(auction.getBids().size(), 1);
+    EXPECT_TRUE(auction.removeBid({"A", 12}));
+    EXPECT_EQ(auction.getBids().size(), 4);
+    EXPECT_EQ(first->price, 11);
+    EXPECT_EQ(first->next->price, 13);
+    EXPECT_TRUE(auction.removeBid({"A", 11}));
+    prev = last;
+    for (int i = 14; prev; prev = prev->prev, --i) {
+        EXPECT_EQ(prev->price, i);
+    }
+    EXPECT_EQ(auction.getBids().size(), 3);
 }
 
-namespace decentralized_path_auction {
-struct TestClass {
-    static void test_collision_checks() {
-        Graph graph;
-        Graph::Nodes pathway;
-        make_pathway(graph, pathway, {0, 0}, {1, 1}, 2);
-        PathSearch::Config config{"A"};
-        PathSearch path_search(std::move(graph), std::move(config));
-        ASSERT_TRUE(pathway[0]->auction.insertBid({"B", 5, 5}));
-        ASSERT_TRUE(pathway[1]->auction.insertBid({"B", 6, 6}));
-        path_search.buildCollisionBids(pathway[0]->auction.getBids(), 4);
-        ASSERT_FALSE(path_search.checkCollisionBids(pathway[1]->auction.getBids(), 4));
-        ASSERT_FALSE(path_search.checkCollisionBids(pathway[1]->auction.getBids(), 5));
-        ASSERT_TRUE(path_search.checkCollisionBids(pathway[1]->auction.getBids(), 7));
-        ASSERT_TRUE(path_search.checkCollisionBids(pathway[1]->auction.getBids(), 8));
-        path_search.buildCollisionBids(pathway[0]->auction.getBids(), 6);
-        ASSERT_TRUE(path_search.checkCollisionBids(pathway[1]->auction.getBids(), 4));
-        ASSERT_TRUE(path_search.checkCollisionBids(pathway[1]->auction.getBids(), 5));
-        ASSERT_FALSE(path_search.checkCollisionBids(pathway[1]->auction.getBids(), 7));
-        ASSERT_FALSE(path_search.checkCollisionBids(pathway[1]->auction.getBids(), 8));
-    }
-};
-}  // namespace decentralized_path_auction
-
 TEST(path_search, collision_checks) {
-    TestClass::test_collision_checks();
+    Graph graph;
+    Graph::Nodes pathway;
+    make_pathway(graph, pathway, {0, 0}, {1, 1}, 2);
+    PathSearch::Config config{"A"};
+    PathSearch path_search(std::move(graph), std::move(config));
+    Auction::Bid* prev = nullptr;
+    ASSERT_TRUE(pathway[0]->auction.insertBid({"B", 5}, prev));
+    ASSERT_TRUE(pathway[1]->auction.insertBid({"B", 6}, prev));
+    std::vector<const Auction::Bids*> bids;
+    for (auto& node : pathway) {
+        bids.push_back(&node->auction.getBids());
+    }
+    ASSERT_FALSE(path_search.checkCollision(*bids[0], *bids[1], 3, 4));
+    ASSERT_FALSE(path_search.checkCollision(*bids[0], *bids[1], 3, 5));
+    ASSERT_TRUE(path_search.checkCollision(*bids[0], *bids[1], 3, 7));
+    ASSERT_TRUE(path_search.checkCollision(*bids[0], *bids[1], 3, 8));
+    ASSERT_TRUE(path_search.checkCollision(*bids[0], *bids[1], 6, 4));
+    ASSERT_TRUE(path_search.checkCollision(*bids[0], *bids[1], 6, 5));
+    ASSERT_FALSE(path_search.checkCollision(*bids[0], *bids[1], 6, 7));
+    ASSERT_FALSE(path_search.checkCollision(*bids[0], *bids[1], 6, 8));
 }
 
 int main(int argc, char* argv[]) {
