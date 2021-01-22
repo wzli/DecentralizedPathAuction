@@ -111,27 +111,23 @@ TEST(auction, insert_remove_bids) {
     EXPECT_EQ(auction.getBids().size(), 3);
 }
 
-TEST(path_search, collision_checks) {
+TEST(auction, collision_checks) {
     Graph graph;
     Graph::Nodes pathway;
     make_pathway(graph, pathway, {0, 0}, {1, 1}, 2);
     PathSearch::Config config{"A"};
-    PathSearch path_search(std::move(graph), std::move(config));
     Auction::Bid* prev = nullptr;
     ASSERT_TRUE(pathway[0]->auction.insertBid({"B", 5}, prev));
     ASSERT_TRUE(pathway[1]->auction.insertBid({"B", 6}, prev));
-    std::vector<const Auction::Bids*> bids;
-    for (auto& node : pathway) {
-        bids.push_back(&node->auction.getBids());
-    }
-    ASSERT_FALSE(path_search.checkCollision(*bids[0], *bids[1], 3, 4));
-    ASSERT_FALSE(path_search.checkCollision(*bids[0], *bids[1], 3, 5));
-    ASSERT_TRUE(path_search.checkCollision(*bids[0], *bids[1], 3, 7));
-    ASSERT_TRUE(path_search.checkCollision(*bids[0], *bids[1], 3, 8));
-    ASSERT_TRUE(path_search.checkCollision(*bids[0], *bids[1], 6, 4));
-    ASSERT_TRUE(path_search.checkCollision(*bids[0], *bids[1], 6, 5));
-    ASSERT_FALSE(path_search.checkCollision(*bids[0], *bids[1], 6, 7));
-    ASSERT_FALSE(path_search.checkCollision(*bids[0], *bids[1], 6, 8));
+    auto& bids = pathway[1]->auction.getBids();
+    ASSERT_FALSE(pathway[0]->auction.checkCollision(3, 4, bids));
+    ASSERT_FALSE(pathway[0]->auction.checkCollision(3, 5, bids));
+    ASSERT_TRUE(pathway[0]->auction.checkCollision(3, 7, bids));
+    ASSERT_TRUE(pathway[0]->auction.checkCollision(3, 8, bids));
+    ASSERT_TRUE(pathway[0]->auction.checkCollision(6, 4, bids));
+    ASSERT_TRUE(pathway[0]->auction.checkCollision(6, 5, bids));
+    ASSERT_FALSE(pathway[0]->auction.checkCollision(6, 7, bids));
+    ASSERT_FALSE(pathway[0]->auction.checkCollision(6, 8, bids));
 }
 
 int main(int argc, char* argv[]) {

@@ -35,9 +35,9 @@ public:
         std::vector<Stop> stops;
     };
 
-    PathSearch(Graph graph, Config config)
-            : _graph(std::move(graph))
-            , _config(std::move(config)) {}
+    PathSearch(Config config, Graph graph)
+            : _config(std::move(config))
+            , _graph(std::move(graph)) {}
 
     Error resetSearch(Graph::NodePtr, Graph::Nodes goal_nodes);
     Error iterateSearch();
@@ -45,12 +45,9 @@ public:
     Graph& getGraph() { return _graph; }
     Config& getConfig() { return _config; }
 
-    bool checkCollision(const Auction::Bids& from_bids, const Auction::Bids& to_bids,
-            float from_price, float to_price) const;
-
 private:
-    Graph _graph;
     Config _config;
+    Graph _graph;
     Graph _goal_nodes;
     Path _path;
     size_t _search_id;

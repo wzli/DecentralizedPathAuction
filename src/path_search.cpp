@@ -18,26 +18,6 @@ static float distance_to_nodes(const Graph& nodes, Point2D position) {
     return nearest ? bg::distance(nearest->position, position) : 0;
 }
 
-bool PathSearch::checkCollision(const Auction::Bids& from_bids, const Auction::Bids& to_bids,
-        float from_price, float to_price) const {
-    for (auto to_bid = std::next(to_bids.begin()); to_bid != to_bids.end(); ++to_bid) {
-        // filter out your own bids
-        if (to_bid->second.bidder == _config.agent_id) {
-            continue;
-        }
-        const auto check_link = [&](const Auction::Bid* link) {
-            auto from_bid = from_bids.find(link->price);
-            return from_bid != from_bids.end() && &from_bid->second == link &&
-                   ((from_bid->first > from_price) != (to_bid->first > to_price));
-        };
-        if ((to_bid->second.prev && check_link(to_bid->second.prev)) ||
-                (to_bid->second.next && check_link(to_bid->second.next))) {
-            return true;
-        }
-    }
-    return false;
-}
-
 PathSearch::Error PathSearch::resetSearch(Graph::NodePtr start_node, Graph::Nodes goal_nodes) {
     // reset goal nodes
     _goal_nodes = Graph();
@@ -72,7 +52,8 @@ PathSearch::Error PathSearch::iterateSearch() {
             };
             // TODO: handle when node in path is deleted
         }
-        auto& bids = stop->node->auction.getBids();
+        auto& auction = stop->node->auction;
+        auto& bids = auction.getBids();
         auto found_bid = bids.find(stop->price);
         if (found_bid == bids.end()) {
             // TODO: handle when reference bid doesn't exist
@@ -88,7 +69,7 @@ PathSearch::Error PathSearch::iterateSearch() {
             auto& adj_bids = adj_node->auction.getBids();
             for (auto& [_, bid] : adj_bids) {
                 // skip if the bid causes collision
-                if (checkCollision(bids, adj_bids, stop->price, bid.price)) {
+                if (auction.checkCollision(stop->price, bid.price, adj_bids, _config.agent_id)) {
                     continue;
                 }
                 // reset cost estimate when search id changes

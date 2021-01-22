@@ -9,6 +9,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wshadow -Og -g")
 
 add_library(decentralized_path_auction
+    src/auction.cpp
     src/graph.cpp
     src/path_search.cpp
 )

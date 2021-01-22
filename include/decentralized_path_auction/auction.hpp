@@ -23,58 +23,11 @@ public:
     Auction(float start_price)
             : _bids({{start_price, {"", start_price}}}) {}
 
-    bool insertBid(Bid bid, Bid*& prev) {
-        // must contain bidder name
-        if (bid.bidder.empty()) {
-            return false;
-        }
-        // must be greater than start price
-        if (bid.price <= getStartPrice()) {
-            return false;
-        }
-        // positive travel time only
-        if (bid.travel_time < 0) {
-            return false;
-        }
-        // linked bids must be from the same bidder
-        if (prev && prev->bidder != bid.bidder) {
-            return false;
-        }
-        // insert bid
-        auto [it, result] = _bids.insert({bid.price, std::move(bid)});
-        // reject if same price bid already exists
-        if (!result) {
-            return false;
-        }
-        // update prev link
-        it->second.prev = prev;
-        if (prev) {
-            prev->next = &it->second;
-        }
-        prev = &it->second;
-        return true;
-    };
+    bool insertBid(Bid bid, Bid*& prev);
+    bool removeBid(const Bid& bid);
 
-    bool removeBid(const Bid& bid) {
-        // don't remove start price
-        if (bid.price == getStartPrice()) {
-            return false;
-        }
-        auto found = _bids.find(bid.price);
-        // only delete when price and bidder matches
-        if (found == _bids.end() || found->second.bidder != bid.bidder) {
-            return false;
-        }
-        // fix links after deletion
-        if (found->second.next) {
-            found->second.next->prev = found->second.prev;
-        }
-        if (found->second.prev) {
-            found->second.prev->next = found->second.next;
-        }
-        _bids.erase(found);
-        return true;
-    };
+    bool checkCollision(float src_price, float dst_price, const Auction::Bids& dst_bids,
+            const std::string& exclude_bidder = "") const;
 
     const Bids& getBids() const { return _bids; }
     float getStartPrice() const { return _bids.begin()->first; }
