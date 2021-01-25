@@ -9,6 +9,8 @@ class PathSearch {
 public:
     enum Error {
         SUCCESS = 0,
+        EXTENDED_PATH,
+        CONTRACTED_PATH,
         INVALID_CONFIG,
         INVALID_START_NODE,
         INVALID_GOAL_NODE,

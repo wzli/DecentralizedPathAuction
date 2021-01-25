@@ -47,6 +47,7 @@ PathSearch::Error PathSearch::iterateSearch() {
     }
     assert(!_path.empty() && "expect first visit to be at start node");
     // iterate in reverse order through each visit in path
+    size_t original_path_size = _path.size();
     for (int visit_index = _path.size() - 1; visit_index >= 0; --visit_index) {
         // use index to iterate since path will be modified at the end of each loop
         auto& visit = _path[visit_index];
@@ -86,6 +87,7 @@ PathSearch::Error PathSearch::iterateSearch() {
             // iterate in reverse order (highest to lowest) through each bid in the auction of the adjacent node
             float wait_duration = 0;
             auto& adj_bids = adj_node->auction.getBids();
+            // TODO: only start from bids priced lower than previous bid on the same node in current path
             for (auto adj_bid = adj_bids.rbegin(); adj_bid != adj_bids.rend(); ++adj_bid) {
                 auto& [_, bid] = *adj_bid;
                 // skip bids that belong to this agent
@@ -134,7 +136,11 @@ PathSearch::Error PathSearch::iterateSearch() {
             _path.push_back(std::move(best_visit));
         }
     }
-    return SUCCESS;
+    // termination condition
+    if (_goal_nodes.containsNode(_path.back().node)) {
+        return SUCCESS;
+    }
+    return _path.size() > original_path_size ? EXTENDED_PATH : CONTRACTED_PATH;
 }
 
 }  // namespace decentralized_path_auction
