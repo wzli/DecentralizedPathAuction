@@ -11,8 +11,8 @@ bool Auction::insertBid(Bid bid, Bid*& prev) {
     if (bid.price <= getStartPrice()) {
         return false;
     }
-    // positive travel time only
-    if (bid.travel_time < 0) {
+    // positive duration only
+    if (bid.duration < 0) {
         return false;
     }
     // linked bids must be from the same bidder
@@ -55,8 +55,8 @@ bool Auction::removeBid(const Bid& bid) {
     return true;
 }
 
-bool Auction::checkCollision(float src_price, float dst_price, const Auction::Bids& dst_bids,
-        const std::string& exclude_bidder) const {
+bool Auction::checkCollision(
+        float src_price, float dst_price, const Auction::Bids& dst_bids, const std::string& exclude_bidder) const {
     for (auto dst_bid = ++dst_bids.begin(); dst_bid != dst_bids.end(); ++dst_bid) {
         if (dst_bid->second.bidder == exclude_bidder) {
             continue;

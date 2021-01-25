@@ -9,31 +9,33 @@ class PathSearch {
 public:
     enum Error {
         SUCCESS = 0,
+        INVALID_CONFIG,
         INVALID_START_NODE,
         INVALID_GOAL_NODE,
         EMPTY_GOAL_NODES,
+        EMPTY_GRAPH,
     };
 
-    using TravelTime = std::function<float(
-            const Graph::NodePtr& prev, const Graph::NodePtr& cur, const Graph::NodePtr& next)>;
+    using TravelTime =
+            std::function<float(const Graph::NodePtr& prev, const Graph::NodePtr& cur, const Graph::NodePtr& next)>;
 
     struct Config {
         std::string agent_id;
-        TravelTime travel_time = [](const Graph::NodePtr&, const Graph::NodePtr& cur,
-                                         const Graph::NodePtr& next) {
+        float time_exchange_rate = 1;
+        TravelTime travel_time = [](const Graph::NodePtr&, const Graph::NodePtr& cur, const Graph::NodePtr& next) {
             return bg::distance(cur->position, next->position);
         };
+
+        bool validate() const { return !agent_id.empty() && time_exchange_rate > 0 && travel_time; }
     };
 
-    struct Path {
-        struct Stop {
-            Graph::NodePtr node;
-            float price;
-            float time_estimate;
-        };
-
-        std::vector<Stop> stops;
+    struct Visit {
+        Graph::NodePtr node;
+        float price;
+        float time;
     };
+
+    using Path = std::vector<Visit>;
 
     PathSearch(Config config, Graph graph)
             : _config(std::move(config))

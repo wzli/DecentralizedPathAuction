@@ -24,13 +24,11 @@ void make_pathway(Graph& graph, Graph::Nodes& pathway, Point2D a, Point2D b, siz
 
 void print_graph(const Graph& graph) {
     auto rtree = graph.getNodes();
-    for (auto qit = rtree.qbegin(bg::index::nearest(Point2D{0, 0}, rtree.size()));
-            qit != rtree.qend(); ++qit) {
+    for (auto qit = rtree.qbegin(bg::index::nearest(Point2D{0, 0}, rtree.size())); qit != rtree.qend(); ++qit) {
         const auto& [pos, node] = *qit;
         printf("(%.2f, %.2f):", pos.x(), pos.y());
         for (const auto& adj_node : node->edges) {
-            printf(" (%.2f, %.2f, %u)", adj_node->position.x(), adj_node->position.y(),
-                    adj_node->state);
+            printf(" (%.2f, %.2f, %u)", adj_node->position.x(), adj_node->position.y(), adj_node->state);
         }
         puts("");
     }
@@ -48,14 +46,17 @@ TEST(graph, insert_nearest_remove) {
     ASSERT_EQ(pathway.size(), 11);
     ASSERT_EQ(pathway.size(), graph.getNodes().size());
     // test nearest queries
-    ASSERT_EQ(pathway.back(), graph.queryNearestNode({100, 13}));
-    ASSERT_EQ(pathway.front(), graph.queryNearestNode({-100, -13}));
-    ASSERT_EQ(pathway[5], graph.queryNearestNode({0.51, 5.1}));
+    ASSERT_EQ(pathway.back(), graph.findNearestNode({100, 13}));
+    ASSERT_EQ(pathway.front(), graph.findNearestNode({-100, -13}));
+    ASSERT_EQ(pathway[5], graph.findNearestNode({0.51, 5.1}));
     // test remove
     graph.removeNode(pathway[5]);
     ASSERT_EQ(graph.getNodes().size(), 10);
     ASSERT_EQ(pathway[5]->state, Graph::Node::DELETED);
-    ASSERT_EQ(pathway[6], graph.queryNearestNode({0.51, 5.1}));
+    ASSERT_EQ(pathway[6], graph.findNearestNode({0.51, 5.1}));
+    // test contain
+    ASSERT_TRUE(graph.findNode({0, 0}));
+    ASSERT_FALSE(graph.findNode({-1, -1}));
     // print_graph(graph);
 }
 

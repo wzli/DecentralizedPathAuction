@@ -10,14 +10,14 @@ public:
     struct Bid {
         std::string bidder;
         float price;
-        float travel_time = 0;
+        float duration = 0;
         Bid* prev = nullptr;
         Bid* next = nullptr;
         // search cache
         mutable size_t search_id = 0;
         mutable float cost_estimate = 0;
 
-        float sumTravelTime() const { return travel_time + (prev ? prev->sumTravelTime() : 0); };
+        float totalDuration() const { return duration + (prev ? prev->totalDuration() : 0); };
     };
 
     using Bids = std::map<float, Bid>;

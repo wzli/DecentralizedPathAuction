@@ -20,10 +20,10 @@ public:
         Auction auction;
         std::vector<std::shared_ptr<Node>> edges;
         const Point2D position;
-        enum State { DEFAULT, NO_PARKING, DELETED } state;
+        enum State { ENABLED, NO_PARKING, DISABLED, DELETED } state;
 
         // Constructor
-        Node(Point2D position_, float base_toll_ = 0, State state_ = DEFAULT)
+        Node(Point2D position_, float base_toll_ = 0, State state_ = ENABLED)
                 : auction(base_toll_)
                 , position(position_)
                 , state(state_) {}
@@ -35,9 +35,16 @@ public:
     using RTree = bg::index::rtree<RTreeNode, bg::index::rstar<16>>;
 
     bool insertNode(NodePtr node);
-    bool removeNode(NodePtr node);
-    NodePtr queryNearestNode(Point2D position) const;
+    bool removeNode(NodePtr node, bool mark_delete = true);
+    void clearNodes(bool mark_delete = true);
+
+    NodePtr findNode(Point2D position) const;
+    NodePtr findNearestNode(Point2D position, Node::State threshold = Node::ENABLED) const;
+    float findNearestDistance(Point2D position, Node::State threshold = Node::ENABLED) const;
+
     const RTree& getNodes() const { return _nodes; }
+    bool containsNode(const NodePtr& node) const { return validateNode(node) && (node == findNode(node->position)); }
+    static bool validateNode(const NodePtr& node) { return node && node->state != Node::DELETED; }
 
 private:
     RTree _nodes;
