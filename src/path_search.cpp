@@ -45,29 +45,23 @@ PathSearch::Error PathSearch::iterateSearch() {
     if (_goal_nodes.getNodes().empty()) {
         return EMPTY_GOAL_NODES;
     }
-    assert(!_path.empty() && "expect first visit to be at start node");
-    // iterate in reverse order through each visit in path
     size_t original_path_size = _path.size();
+    // truncate visits in path that are invalid
+    for (auto visit = _path.begin(); visit != _path.end(); ++visit) {
+        // visit is invalid if node got deleted or bid got removed
+        if (!Graph::validateNode(visit->node) || !visit->node->auction.getBids().count(visit->price)) {
+            _path.erase(visit, _path.end());
+            break;
+        }
+    }
+    if (_path.empty()) {
+        return INVALID_START_NODE;
+    }
+    // iterate in reverse order through each visit in path
     for (int visit_index = _path.size() - 1; visit_index >= 0; --visit_index) {
         // use index to iterate since path will be modified at the end of each loop
         auto& visit = _path[visit_index];
-        // check if node in path got deleted
-        if (!Graph::validateNode(visit.node)) {
-            // exit routine if start node doesn't exist
-            if (visit_index == 0) {
-                return INVALID_START_NODE;
-            }
-            // otherwise, truncate from end of path up to the deleted node
-            _path.resize(visit_index);
-            continue;
-        }
         auto& bids = visit.node->auction.getBids();
-        auto found_bid = bids.find(visit.price);
-        // if current bid doesn't exist, truncate from end of path up to to current visit
-        if (found_bid == bids.end()) {
-            _path.resize(visit_index);
-            continue;
-        }
         // store the best adjacent visit found
         float min_cost = std::numeric_limits<float>::max();
         Visit best_visit{nullptr, 0, 0};
@@ -99,7 +93,7 @@ PathSearch::Error PathSearch::iterateSearch() {
                     wait_duration = std::max(wait_duration, std::prev(adj_bid)->second.totalDuration());
                 }
                 // skip the bid if it causes collision
-                if (visit.node->auction.checkCollision(visit.price, bid.price, adj_bids, _config.agent_id)) {
+                if (checkCollision(bid, visit_index)) {
                     continue;
                 }
                 // reset cost estimate when search id changes
@@ -122,6 +116,8 @@ PathSearch::Error PathSearch::iterateSearch() {
             }
         }
         // update min cost of the bid in current visit to the cost of the best next visit found
+        auto found_bid = bids.find(visit.price);
+        assert(found_bid != bids.end());
         found_bid->second.cost_estimate = min_cost;
         // proceed to previous visit if current visit is a dead end
         if (!best_visit.node) {
@@ -141,6 +137,17 @@ PathSearch::Error PathSearch::iterateSearch() {
         return SUCCESS;
     }
     return _path.size() > original_path_size ? EXTENDED_PATH : CONTRACTED_PATH;
+}
+
+bool PathSearch::checkCollision(const Auction::Bid& bid, int visit_index) {
+    ++_collision_id;
+    for (int i = 0; i <= visit_index; ++i) {
+        assert(Graph::validateNode(_path[i].node));
+        auto found_bid = _path[i].node->auction.getBids().find(_path[i].price);
+        assert(found_bid != _path[i].node->auction.getBids().end());
+        found_bid->second.collision_id = _collision_id;
+    }
+    return Auction::checkCollision(&bid, _collision_id, _config.agent_id);
 }
 
 }  // namespace decentralized_path_auction

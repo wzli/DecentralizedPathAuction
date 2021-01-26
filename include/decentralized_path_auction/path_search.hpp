@@ -46,6 +46,8 @@ public:
     Error resetSearch(Graph::NodePtr, Graph::Nodes goal_nodes);
     Error iterateSearch();
 
+    bool checkCollision(const Auction::Bid& bid, int visit_index);
+
     Graph& getGraph() { return _graph; }
     Config& getConfig() { return _config; }
 
@@ -54,7 +56,8 @@ private:
     Graph _graph;
     Graph _goal_nodes;
     Path _path;
-    size_t _search_id;
+    size_t _search_id = 0;
+    size_t _collision_id = 0;
 };
 
 }  // namespace decentralized_path_auction

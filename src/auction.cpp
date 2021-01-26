@@ -2,6 +2,11 @@
 
 namespace decentralized_path_auction {
 
+Auction::Auction(float start_price)
+        : _bids({{start_price, {"", start_price, 0}}}) {
+    _bids.begin()->second.self = _bids.begin();
+}
+
 bool Auction::insertBid(Bid bid, Bid*& prev) {
     // must contain bidder name
     if (bid.bidder.empty()) {
@@ -25,6 +30,8 @@ bool Auction::insertBid(Bid bid, Bid*& prev) {
     if (!result) {
         return false;
     }
+    // store self iterator
+    it->second.self = it;
     // update prev link
     it->second.prev = prev;
     if (prev) {
@@ -72,6 +79,25 @@ bool Auction::checkCollision(
         }
     }
     return false;
+}
+
+bool Auction::checkCollision(const Auction::Bid* bid, size_t collision_id, const std::string& exclude_bidder) {
+    // termination condition
+    if (!bid || bid->bidder.empty()) {
+        return false;
+    }
+    // skip to next bid in auction if bidder is excluded
+    if (bid->bidder == exclude_bidder) {
+        bid = &std::prev(bid->self)->second;
+    }
+    // collision occured if previously visited bid was visited again
+    if (bid->collision_id == collision_id) {
+        return true;
+    }
+    // mark traversed bids as visited
+    bid->collision_id = collision_id;
+    // check collision for next bids in time (first by auction, then by path)
+    return checkCollision(&std::prev(bid->self)->second, collision_id) || checkCollision(bid->next, collision_id);
 }
 
 }  // namespace decentralized_path_auction
