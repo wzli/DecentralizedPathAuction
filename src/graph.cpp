@@ -48,9 +48,4 @@ Graph::NodePtr Graph::findNearestNode(Point2D position, Node::State threshold) c
     return query == _nodes.qend() ? nullptr : std::move(query->second);
 }
 
-float Graph::findNearestDistance(Point2D position, Node::State threshold) const {
-    auto nearest = findNearestNode(position, threshold);
-    return nearest ? bg::distance(nearest->position, position) : 0;
-}
-
 }  // namespace decentralized_path_auction

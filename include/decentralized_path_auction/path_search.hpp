@@ -33,8 +33,9 @@ public:
 
     struct Visit {
         Graph::NodePtr node;
-        float price;
-        float time;
+        float price;  // current bid price of the slot
+        float value;  // amount willing to pay for the slot
+        float time;   // expected time of arrival
     };
 
     using Path = std::vector<Visit>;
@@ -43,18 +44,21 @@ public:
             : _config(std::move(config))
             , _graph(std::move(graph)) {}
 
-    Error resetSearch(Graph::NodePtr, Graph::Nodes goal_nodes);
+    // keep previous destinations by leaving dst_nodes empty
+    Error resetSearch(Graph::NodePtr src_node, Graph::Nodes dst_nodes = {});
     Error iterateSearch();
-
-    bool checkCollision(const Auction::Bid& bid, int visit_index);
 
     Graph& getGraph() { return _graph; }
     Config& getConfig() { return _config; }
 
 private:
+    float getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid) const;
+    bool checkCollision(const Auction::Bid& bid, int visit_index);
+
     Config _config;
     Graph _graph;
-    Graph _goal_nodes;
+    Graph _dst_nodes;
+    Graph::NodePtr _src_node;
     Path _path;
     size_t _search_id = 0;
     size_t _collision_id = 0;

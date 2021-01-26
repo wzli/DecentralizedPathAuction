@@ -32,12 +32,11 @@ public:
     bool checkCollision(float src_price, float dst_price, const Auction::Bids& dst_bids,
             const std::string& exclude_bidder = "") const;
 
+    const Bid& getHighestBid(const std::string& exclude_bidder = "") const;
     const Bids& getBids() const { return _bids; }
     float getStartPrice() const { return _bids.begin()->first; }
 
     static bool checkCollision(const Auction::Bid* bid, size_t collision_id, const std::string& exclude_bidder = "");
-
-    // TODO: if you occupy a node, you bid float max
 
 private:
     Bids _bids;

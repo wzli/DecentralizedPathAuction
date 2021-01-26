@@ -49,12 +49,14 @@ TEST(graph, insert_nearest_remove) {
     ASSERT_EQ(pathway.back(), graph.findNearestNode({100, 13}));
     ASSERT_EQ(pathway.front(), graph.findNearestNode({-100, -13}));
     ASSERT_EQ(pathway[5], graph.findNearestNode({0.51, 5.1}));
-    // test remove
+    // test remove and contains
+    ASSERT_TRUE(graph.containsNode(pathway[5]));
     graph.removeNode(pathway[5]);
+    ASSERT_FALSE(graph.containsNode(pathway[5]));
     ASSERT_EQ(graph.getNodes().size(), 10);
     ASSERT_EQ(pathway[5]->state, Graph::Node::DELETED);
     ASSERT_EQ(pathway[6], graph.findNearestNode({0.51, 5.1}));
-    // test contain
+    // test find
     ASSERT_TRUE(graph.findNode({0, 0}));
     ASSERT_FALSE(graph.findNode({-1, -1}));
     // print_graph(graph);
@@ -73,6 +75,8 @@ TEST(auction, insert_remove_bids) {
     EXPECT_FALSE(auction.insertBid({"A", 5}, prev));
     // valid insert
     EXPECT_TRUE(auction.insertBid({"A", 11}, prev));
+    EXPECT_EQ(auction.getHighestBid().price, 11);
+    EXPECT_EQ(auction.getHighestBid("A").price, 10);
     auto first = prev;
     EXPECT_EQ(auction.getBids().size(), 2);
     EXPECT_TRUE(prev);
@@ -87,6 +91,7 @@ TEST(auction, insert_remove_bids) {
     EXPECT_TRUE(auction.insertBid({"A", 12}, prev));
     EXPECT_TRUE(auction.insertBid({"A", 13}, prev));
     EXPECT_TRUE(auction.insertBid({"A", 14}, prev));
+    EXPECT_EQ(auction.getHighestBid().price, 14);
     auto last = prev;
     // test links
     for (int i = 14; prev; prev = prev->prev, --i) {

@@ -100,4 +100,13 @@ bool Auction::checkCollision(const Auction::Bid* bid, size_t collision_id, const
     return checkCollision(&std::prev(bid->self)->second, collision_id) || checkCollision(bid->next, collision_id);
 }
 
+const Auction::Bid& Auction::getHighestBid(const std::string& exclude_bidder) const {
+    for (auto bid = _bids.rbegin(); bid != _bids.rend(); ++bid) {
+        if (bid->second.bidder != exclude_bidder) {
+            return bid->second;
+        }
+    }
+    return _bids.begin()->second;
+}
+
 }  // namespace decentralized_path_auction

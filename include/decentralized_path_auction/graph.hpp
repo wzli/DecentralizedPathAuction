@@ -40,7 +40,6 @@ public:
 
     NodePtr findNode(Point2D position) const;
     NodePtr findNearestNode(Point2D position, Node::State threshold = Node::ENABLED) const;
-    float findNearestDistance(Point2D position, Node::State threshold = Node::ENABLED) const;
 
     const RTree& getNodes() const { return _nodes; }
     bool containsNode(const NodePtr& node) const { return validateNode(node) && (node == findNode(node->position)); }
