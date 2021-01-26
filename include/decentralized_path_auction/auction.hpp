@@ -13,6 +13,7 @@ public:
         float duration = 0;
         Bid* prev = nullptr;
         Bid* next = nullptr;
+        Bid* higher = nullptr;
         std::map<float, Bid>::iterator self = {};
         // search cache
         mutable size_t search_id = 0;
@@ -24,13 +25,11 @@ public:
 
     using Bids = std::map<float, Bid>;
 
-    Auction(float start_price);
+    Auction(float start_price)
+            : _bids({{start_price, {"", start_price, 0}}}) {}
 
     bool insertBid(Bid bid, Bid*& prev);
     bool removeBid(const Bid& bid);
-
-    bool checkCollision(float src_price, float dst_price, const Auction::Bids& dst_bids,
-            const std::string& exclude_bidder = "") const;
 
     const Bid& getHighestBid(const std::string& exclude_bidder = "") const;
     const Bids& getBids() const { return _bids; }
