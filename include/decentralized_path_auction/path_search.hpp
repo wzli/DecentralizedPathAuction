@@ -62,6 +62,8 @@ public:
     Graph& getGraph() { return _graph; }
     Config& getConfig() { return _config; }
 
+    static Path finalizeBidPrices(Path path);
+
 private:
     bool detectCycle(const Auction::Bid& bid, const Path& path);
     float getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid) const;
@@ -69,7 +71,6 @@ private:
     Config _config;
     Graph _graph;
     Graph _dst_nodes;
-    Path _path;
     size_t _cycle_nonce = 0;
     size_t _cost_nonce = 0;
 };

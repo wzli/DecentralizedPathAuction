@@ -198,4 +198,17 @@ float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid
     return bid.cost_estimate;
 }
 
+Path PathSearch::finalizeBidPrices(Path path) {
+    for (auto& visit : path) {
+        assert(Graph::validateNode(visit.node));
+        auto& auction = visit.node->auction;
+        auto next_highest_bid = auction.getBids().upper_bound(visit.price);
+        // use value as price if there is no higher bid, otherwise bid inbetween the slot
+        visit.price = next_highest_bid == auction.getBids().end() ? visit.value
+                                                                  : (visit.price + next_highest_bid->first) * 0.5f;
+        visit.value = 0;
+    }
+    return path;
+}
+
 }  // namespace decentralized_path_auction

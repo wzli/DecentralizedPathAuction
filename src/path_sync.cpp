@@ -2,24 +2,22 @@
 
 namespace decentralized_path_auction {
 
-// TODO: handle when insert and remove bid fails
-static void insertBids(const std::string& agent_id, const Path& path, float stop_duration) {
+static void insertPathBids(const std::string& agent_id, const Path& path, float stop_duration) {
     Auction::Bid* prev_bid = nullptr;
     for (auto& visit : path) {
-        assert(Graph::validateNode(visit.node));
-        auto& auction = visit.node->auction;
-        auto next_highest_bid = auction.getBids().upper_bound(visit.price);
-        float bid_price = next_highest_bid == auction.getBids().end() ? visit.value
-                                                                      : (visit.price + next_highest_bid->first) * 0.5f;
-        float duration = &visit == &path.back() ? (&visit + 1)->time - visit.time : stop_duration;
-        visit.node->auction.insertBid(agent_id, bid_price, duration, prev_bid);
+        // convert timestamp to duration
+        float duration = &visit == &path.back() ? stop_duration : (&visit + 1)->time - visit.time;
+        assert(duration >= 0);
+        if (!visit.node->auction.insertBid(agent_id, visit.price, duration, prev_bid)) {
+            assert(0 && "insert bid failed");
+        };
     }
 }
 
-static void removeBids(const std::string& agent_id, Path::iterator begin, Path::iterator end) {
-    for (; begin != end; ++begin) {
-        if (!begin->node->auction.removeBid(agent_id, begin->price)) {
-            assert(0);
+static void removePathBids(const std::string& agent_id, Path::iterator it, Path::iterator end) {
+    for (; it != end; ++it) {
+        if (!it->node->auction.removeBid(agent_id, it->price)) {
+            assert(0 && "remove bid failed");
         }
     }
 }
@@ -41,8 +39,8 @@ PathSync::Error PathSync::updatePath(const std::string& agent_id, Path path, flo
         return PATH_ID_STALE;
     }
     // remove old bids
-    removeBids(agent_id, info.path.begin(), info.path.end());
-    insertBids(agent_id, path, stop_duration);
+    removePathBids(agent_id, info.path.begin(), info.path.end());
+    insertPathBids(agent_id, path, stop_duration);
     // save path (delete if path is empty)
     if (path.empty()) {
         _paths.erase(agent_id);
@@ -68,7 +66,7 @@ PathSync::Error PathSync::updateProgress(const std::string& agent_id, size_t pro
     if (progress < info.progress) {
         return PROGRESS_DECREASE_DENIED;
     }
-    removeBids(agent_id, info.path.begin() + info.progress, info.path.begin() + progress);
+    removePathBids(agent_id, info.path.begin() + info.progress, info.path.begin() + progress);
     info.progress = progress;
     return SUCCESS;
 }
