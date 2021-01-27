@@ -2,6 +2,14 @@
 
 namespace decentralized_path_auction {
 
+Graph::~Graph() {
+    for (auto& rt_node : _nodes) {
+        // clear edges to break shared_ptr cyclic references
+        rt_node.second->edges.clear();
+        rt_node.second->state = Node::DELETED;
+    }
+}
+
 bool Graph::insertNode(Graph::NodePtr node) {
     if (!validateNode(node)) {
         return false;
@@ -10,42 +18,42 @@ bool Graph::insertNode(Graph::NodePtr node) {
     if (findNode(node->position)) {
         return false;
     }
-    _nodes.insert(RTreeNode(node->position, std::move(node)));
+    // insert to rtree
+    RTreeNode rt_node{node->position, nullptr};
+    rt_node.second = std::move(node);
+    _nodes.insert(rt_node);
     return true;
 }
 
-bool Graph::removeNode(Graph::NodePtr node, bool mark_delete) {
+bool Graph::removeNode(Graph::NodePtr node) {
     if (!node) {
         return false;
     }
-    if (mark_delete) {
-        // clear edges to break shared_ptr cyclic references
-        node->edges.clear();
-        node->state = Node::DELETED;
-    }
-    return _nodes.remove(RTreeNode(node->position, std::move(node)));
+    // clear edges to break shared_ptr cyclic references
+    node->edges.clear();
+    node->state = Node::DELETED;
+    // remove from rtree
+    RTreeNode rt_node{node->position, nullptr};
+    rt_node.second = std::move(node);
+    return _nodes.remove(rt_node);
 }
 
-void Graph::clearNodes(bool mark_delete) {
-    if (mark_delete) {
-        for (auto& rt_node : _nodes) {
-            rt_node.second->edges.clear();
-            rt_node.second->state = Node::DELETED;
-        }
-    }
-    _nodes.clear();
-}
-
-Graph::NodePtr Graph::findNode(Point2D position) const {
-    auto query = _nodes.qbegin(bg::index::contains(position));
-    return query == _nodes.qend() ? nullptr : std::move(query->second);
+Graph::RTree Graph::detachNodes() {
+    RTree detached;
+    _nodes.swap(detached);
+    // use named return value optimization instead of move
+    return detached;
 }
 
 Graph::NodePtr Graph::findNearestNode(Point2D position, Node::State threshold) const {
-    auto query = _nodes.qbegin(
-            bg::index::nearest(position, 1) &&
+    return query(bg::index::nearest(position, 1) && bg::index::satisfies([threshold](const RTreeNode& rt_node) {
+        return rt_node.second->state <= threshold;
+    }));
+}
+
+Graph::NodePtr Graph::findAnyNode(Node::State threshold) const {
+    return query(
             bg::index::satisfies([threshold](const RTreeNode& rt_node) { return rt_node.second->state <= threshold; }));
-    return query == _nodes.qend() ? nullptr : std::move(query->second);
 }
 
 }  // namespace decentralized_path_auction

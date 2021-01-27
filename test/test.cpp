@@ -46,22 +46,23 @@ TEST(graph, insert_nearest_remove) {
     ASSERT_EQ(pathway.size(), 11);
     ASSERT_EQ(pathway.size(), graph.getNodes().size());
     // test nearest queries
-    ASSERT_EQ(pathway.back(), graph.findNearestNode({100, 13}));
-    ASSERT_EQ(pathway.front(), graph.findNearestNode({-100, -13}));
-    ASSERT_EQ(pathway[5], graph.findNearestNode({0.51, 5.1}));
+    ASSERT_EQ(pathway.back(), graph.findNearestNode({100, 13}, Graph::Node::ENABLED));
+    ASSERT_EQ(pathway.front(), graph.findNearestNode({-100, -13}, Graph::Node::ENABLED));
+    ASSERT_EQ(pathway[5], graph.findNearestNode({0.51, 5.1}, Graph::Node::ENABLED));
     // test remove and contains
     ASSERT_TRUE(graph.containsNode(pathway[5]));
     graph.removeNode(pathway[5]);
     ASSERT_FALSE(graph.containsNode(pathway[5]));
     ASSERT_EQ(graph.getNodes().size(), 10);
     ASSERT_EQ(pathway[5]->state, Graph::Node::DELETED);
-    ASSERT_EQ(pathway[6], graph.findNearestNode({0.51, 5.1}));
+    ASSERT_EQ(pathway[6], graph.findNearestNode({0.51, 5.1}, Graph::Node::ENABLED));
     // test find
     ASSERT_TRUE(graph.findNode({0, 0}));
     ASSERT_FALSE(graph.findNode({-1, -1}));
     // print_graph(graph);
 }
 
+#if 0
 TEST(auction, insert_remove_bids) {
     Auction auction(10);
     EXPECT_EQ(auction.getStartPrice(), 10);
@@ -125,7 +126,6 @@ TEST(auction, insert_remove_bids) {
     }
 }
 
-#if 0
 TEST(auction, collision_checks) {
     Graph graph;
     Graph::Nodes pathway;
@@ -147,6 +147,12 @@ TEST(auction, collision_checks) {
     ASSERT_FALSE(pathway[0]->auction.checkCollision(6, 8, bids));
 }
 #endif
+
+// TODO:
+// test passive path
+// test evading into aile
+// test cyclic dependencies check
+// test back and forth dependencies
 
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);

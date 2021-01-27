@@ -20,7 +20,7 @@ public:
         Auction auction;
         std::vector<std::shared_ptr<Node>> edges;
         const Point2D position;
-        enum State { ENABLED, NO_PARKING, DISABLED, DELETED } state;
+        enum State { ENABLED, NO_PARKING, NO_STOPPING, DISABLED, DELETED } state;
 
         // Constructor
         Node(Point2D position_, float base_toll_ = 0, State state_ = ENABLED)
@@ -34,12 +34,22 @@ public:
     using RTreeNode = std::pair<Point2D, NodePtr>;
     using RTree = bg::index::rtree<RTreeNode, bg::index::rstar<16>>;
 
-    bool insertNode(NodePtr node);
-    bool removeNode(NodePtr node, bool mark_delete = true);
-    void clearNodes(bool mark_delete = true);
+    // mark all nodes as deleted on destruction
+    ~Graph();
 
-    NodePtr findNode(Point2D position) const;
-    NodePtr findNearestNode(Point2D position, Node::State threshold = Node::ENABLED) const;
+    bool insertNode(NodePtr node);
+    bool removeNode(NodePtr node);
+    RTree detachNodes();
+
+    template <class Predicate>
+    NodePtr query(const Predicate& predicate) const {
+        auto query = _nodes.qbegin(predicate);
+        return query == _nodes.qend() ? nullptr : std::move(query->second);
+    }
+
+    NodePtr findNode(Point2D position) const { return query(bg::index::contains(position)); }
+    NodePtr findNearestNode(Point2D position, Node::State threshold) const;
+    NodePtr findAnyNode(Node::State threshold) const;
 
     const RTree& getNodes() const { return _nodes; }
     bool containsNode(const NodePtr& node) const { return validateNode(node) && (node == findNode(node->position)); }

@@ -2,52 +2,53 @@
 
 namespace decentralized_path_auction {
 
-bool Auction::insertBid(Bid bid, Bid*& prev) {
+bool Auction::insertBid(const std::string& bidder, float price, float duration, Bid*& prev) {
     // must contain bidder name
-    if (bid.bidder.empty()) {
+    if (bidder.empty()) {
         return false;
     }
     // must be greater than start price
-    if (bid.price <= getStartPrice()) {
+    if (price <= getStartPrice()) {
         return false;
     }
     // positive duration only
-    if (bid.duration < 0) {
+    if (duration < 0) {
         return false;
     }
     // linked bids must be from the same bidder
-    if (prev && prev->bidder != bid.bidder) {
+    if (prev && prev->bidder != bidder) {
         return false;
     }
     // insert bid
-    auto [it, result] = _bids.insert({bid.price, std::move(bid)});
+    auto [it, result] = _bids.insert({price, {bidder, duration}});
     // reject if same price bid already exists
     if (!result) {
         return false;
     }
-    // store link to next highest bid
-    auto higher = std::next(it);
-    it->second.higher = higher == _bids.end() ? nullptr : &higher->second;
-    if (it != _bids.begin()) {
-        std::prev(it)->second.higher = &it->second;
-    }
     // update prev link
-    it->second.prev = prev;
     if (prev) {
         prev->next = &it->second;
     }
+    it->second.prev = prev;
     prev = &it->second;
+    // store link to next highest bid
+    if (std::next(it) != _bids.end()) {
+        it->second.higher = &std::next(it)->second;
+    }
+    if (it != _bids.begin()) {
+        std::prev(it)->second.higher = &it->second;
+    }
     return true;
 }
 
-bool Auction::removeBid(const Bid& bid) {
+bool Auction::removeBid(const std::string& bidder, float price) {
     // don't remove start price
-    if (bid.price == getStartPrice()) {
+    if (bidder.empty()) {
         return false;
     }
-    auto found = _bids.find(bid.price);
     // only delete when price and bidder matches
-    if (found == _bids.end() || found->second.bidder != bid.bidder) {
+    auto found = _bids.find(price);
+    if (found == _bids.end() || found->second.bidder != bidder) {
         return false;
     }
     // fix links after deletion
@@ -62,30 +63,25 @@ bool Auction::removeBid(const Bid& bid) {
     return true;
 }
 
-const Auction::Bid& Auction::getHighestBid(const std::string& exclude_bidder) const {
-    for (auto bid = _bids.rbegin(); bid != _bids.rend(); ++bid) {
-        if (bid->second.bidder != exclude_bidder) {
-            return bid->second;
-        }
+Auction::Bids::const_iterator Auction::getHighestBid(const std::string& exclude_bidder) const {
+    auto highest_bid = std::prev(_bids.end());
+    while (highest_bid != _bids.begin() && highest_bid->second.bidder == exclude_bidder) {
+        --highest_bid;
     }
-    return _bids.begin()->second;
+    return highest_bid;
 }
 
-bool Auction::checkCollision(const Auction::Bid* bid, size_t collision_id, const std::string& exclude_bidder) {
-    // termination condition
-    if (!bid) {
-        return false;
-    }
-    // collision occured if previously visited bid was visited again
-    if (bid->collision_id == collision_id) {
+bool Auction::Bid::detectCycle(size_t nonce, const std::string& exclude_bidder) const {
+    // cycle occured if previously visited bid was visited again
+    if (cycle_nonce == nonce) {
         return true;
     }
     // mark traversed bids as visited
-    bid->collision_id = collision_id;
-    // check collision for next bids in time (first by auction, then by path)
-    return checkCollision(bid->higher, collision_id, exclude_bidder) ||
+    cycle_nonce = nonce;
+    // detect cycle for next bids in time (first by auction, then by path)
+    return (higher && higher->detectCycle(nonce, exclude_bidder)) ||
            // skip the current bid's path if the bidder is excluded
-           (bid->bidder != exclude_bidder && checkCollision(bid->next, collision_id, exclude_bidder));
+           (bidder != exclude_bidder && next && next->detectCycle(nonce, exclude_bidder));
 }
 
 }  // namespace decentralized_path_auction

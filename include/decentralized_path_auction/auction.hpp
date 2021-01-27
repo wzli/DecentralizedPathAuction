@@ -9,33 +9,32 @@ class Auction {
 public:
     struct Bid {
         std::string bidder;
-        float price;
         float duration = 0;
+        // links to other bids
         Bid* prev = nullptr;
         Bid* next = nullptr;
         Bid* higher = nullptr;
-        std::map<float, Bid>::iterator self = {};
         // search cache
-        mutable size_t search_id = 0;
-        mutable size_t collision_id = 0;
+        mutable size_t cycle_nonce = 0;
+        mutable size_t cost_nonce = 0;
         mutable float cost_estimate = 0;
 
+        // recursive functions
+        bool detectCycle(size_t nonce, const std::string& exclude_bidder = "") const;
         float totalDuration() const { return duration + (prev ? prev->totalDuration() : 0); };
     };
 
     using Bids = std::map<float, Bid>;
 
     Auction(float start_price)
-            : _bids({{start_price, {"", start_price, 0}}}) {}
+            : _bids({{start_price, {""}}}) {}
 
-    bool insertBid(Bid bid, Bid*& prev);
-    bool removeBid(const Bid& bid);
+    bool insertBid(const std::string& bidder, float price, float duration, Bid*& prev);
+    bool removeBid(const std::string& bidder, float price);
 
-    const Bid& getHighestBid(const std::string& exclude_bidder = "") const;
     const Bids& getBids() const { return _bids; }
     float getStartPrice() const { return _bids.begin()->first; }
-
-    static bool checkCollision(const Auction::Bid* bid, size_t collision_id, const std::string& exclude_bidder = "");
+    Bids::const_iterator getHighestBid(const std::string& exclude_bidder = "") const;
 
 private:
     Bids _bids;

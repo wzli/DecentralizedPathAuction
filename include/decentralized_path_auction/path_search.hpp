@@ -9,33 +9,45 @@ class PathSearch {
 public:
     enum Error {
         SUCCESS = 0,
-        EXTENDED_PATH,
-        CONTRACTED_PATH,
-        INVALID_CONFIG,
-        INVALID_START_NODE,
-        INVALID_GOAL_NODE,
-        EMPTY_GOAL_NODES,
-        EMPTY_GRAPH,
+
+        GRAPH_EMPTY,
+
+        PATH_EXTENDED,
+        PATH_CONTRACTED,
+
+        DESTINATION_NODE_NOT_FOUND,
+        DESTINATION_NODE_NOT_ENABLED,
+        DESTINATION_NODE_DUPLICATED,
+
+        SOURCE_NODE_NOT_PROVIDED,
+        SOURCE_NODE_NOT_FOUND,
+        SOURCE_NODE_DISABLED,
+
+        CONFIG_AGENT_ID_EMPTY,
+        CONFIG_TIME_EXCHANGE_RATE_NON_POSITIVE,
+        CONFIG_TRAVEL_TIME_MISSING,
     };
 
     using TravelTime =
             std::function<float(const Graph::NodePtr& prev, const Graph::NodePtr& cur, const Graph::NodePtr& next)>;
 
+    static float travelDistance(const Graph::NodePtr&, const Graph::NodePtr& cur, const Graph::NodePtr& next) {
+        return bg::distance(cur->position, next->position);
+    }
+
     struct Config {
         std::string agent_id;
         float time_exchange_rate = 1;
-        TravelTime travel_time = [](const Graph::NodePtr&, const Graph::NodePtr& cur, const Graph::NodePtr& next) {
-            return bg::distance(cur->position, next->position);
-        };
+        TravelTime travel_time = travelDistance;
 
-        bool validate() const { return !agent_id.empty() && time_exchange_rate > 0 && travel_time; }
+        Error validate() const;
     };
 
     struct Visit {
         Graph::NodePtr node;
-        float price;  // current bid price of the slot
-        float value;  // amount willing to pay for the slot
-        float time;   // expected time of arrival
+        float time = 0;                                   // expected time of arrival
+        float price = 0;                                  // current bid price of the slot
+        float value = std::numeric_limits<float>::max();  // amount willing to pay for the slot
     };
 
     using Path = std::vector<Visit>;
@@ -44,24 +56,22 @@ public:
             : _config(std::move(config))
             , _graph(std::move(graph)) {}
 
-    // keep previous destinations by leaving dst_nodes empty
-    Error resetSearch(Graph::NodePtr src_node, Graph::Nodes dst_nodes = {});
-    Error iterateSearch();
+    Error setDestination(Graph::Nodes nodes);
+    Error iterateSearch(Path& path);
 
     Graph& getGraph() { return _graph; }
     Config& getConfig() { return _config; }
 
 private:
+    bool detectCycle(const Auction::Bid& bid, const Path& path);
     float getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid) const;
-    bool checkCollision(const Auction::Bid& bid, int visit_index);
 
     Config _config;
     Graph _graph;
     Graph _dst_nodes;
-    Graph::NodePtr _src_node;
     Path _path;
-    size_t _search_id = 0;
-    size_t _collision_id = 0;
+    size_t _cycle_nonce = 0;
+    size_t _cost_nonce = 0;
 };
 
 }  // namespace decentralized_path_auction
