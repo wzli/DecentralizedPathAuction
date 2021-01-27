@@ -7,6 +7,16 @@ namespace decentralized_path_auction {
 
 class Auction {
 public:
+    enum Error {
+        SUCCESS,
+        BIDDER_EMPTY,
+        BIDDER_NOT_FOUND,
+        BIDDER_PREV_MISMATCH,
+        PRICE_BELOW_START,
+        PRICE_ALREADY_EXIST,
+        DURATION_NEGATIVE,
+    };
+
     struct Bid {
         std::string bidder;
         float duration = 0;
@@ -29,8 +39,8 @@ public:
     Auction(float start_price)
             : _bids({{start_price, {""}}}) {}
 
-    bool insertBid(const std::string& bidder, float price, float duration, Bid*& prev);
-    bool removeBid(const std::string& bidder, float price);
+    Error insertBid(const std::string& bidder, float price, float duration, Bid*& prev);
+    Error removeBid(const std::string& bidder, float price);
 
     const Bids& getBids() const { return _bids; }
     float getStartPrice() const { return _bids.begin()->first; }

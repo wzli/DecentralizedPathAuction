@@ -19,13 +19,18 @@ public:
     enum Error {
         SUCCESS = 0,
 
-        GRAPH_EMPTY,
-
         PATH_EXTENDED,
         PATH_CONTRACTED,
 
+        PATH_EMPTY,
+        PATH_NODE_NOT_FOUND,
+        PATH_NODE_DISABLED,
+        PATH_BID_NOT_FOUND,
+        PATH_BID_OVER_SELF,
+        PATH_PARKING_VIOLATION,
+
         DESTINATION_NODE_NOT_FOUND,
-        DESTINATION_NODE_NOT_ENABLED,
+        DESTINATION_NODE_NO_PARKING,
         DESTINATION_NODE_DUPLICATED,
 
         SOURCE_NODE_NOT_PROVIDED,
@@ -35,6 +40,8 @@ public:
         CONFIG_AGENT_ID_EMPTY,
         CONFIG_TIME_EXCHANGE_RATE_NON_POSITIVE,
         CONFIG_TRAVEL_TIME_MISSING,
+
+        GRAPH_EMPTY,
     };
 
     using TravelTime =
@@ -58,11 +65,10 @@ public:
 
     Error setDestination(Graph::Nodes nodes);
     Error iterateSearch(Path& path);
+    Error finalizePrice(Path& path) const;
 
     Graph& getGraph() { return _graph; }
     Config& getConfig() { return _config; }
-
-    static Path finalizeBidPrices(Path path);
 
 private:
     bool detectCycle(const Auction::Bid& bid, const Path& path);

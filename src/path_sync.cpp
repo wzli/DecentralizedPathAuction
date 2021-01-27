@@ -2,6 +2,24 @@
 
 namespace decentralized_path_auction {
 
+static bool validatePath(const Path& path) {
+    for (auto& visit : path) {
+        if (!Graph::validateNode(visit.node)) {
+            return false;
+        }
+        if (visit.price < 0) {
+            return false;
+        }
+        if (visit.price > visit.value) {
+            return false;
+        }
+        if (&visit != &path.back() && visit.time > (&visit + 1)->time) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static void insertPathBids(const std::string& agent_id, const Path& path, float stop_duration) {
     Auction::Bid* prev_bid = nullptr;
     for (auto& visit : path) {

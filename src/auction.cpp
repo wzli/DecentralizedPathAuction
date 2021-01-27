@@ -2,28 +2,28 @@
 
 namespace decentralized_path_auction {
 
-bool Auction::insertBid(const std::string& bidder, float price, float duration, Bid*& prev) {
+Auction::Error Auction::insertBid(const std::string& bidder, float price, float duration, Bid*& prev) {
     // must contain bidder name
     if (bidder.empty()) {
-        return false;
+        return BIDDER_EMPTY;
     }
     // must be greater than start price
     if (price <= getStartPrice()) {
-        return false;
+        return PRICE_BELOW_START;
     }
     // positive duration only
     if (duration < 0) {
-        return false;
+        return DURATION_NEGATIVE;
     }
     // linked bids must be from the same bidder
     if (prev && prev->bidder != bidder) {
-        return false;
+        return BIDDER_PREV_MISMATCH;
     }
     // insert bid
     auto [it, result] = _bids.insert({price, {bidder, duration}});
     // reject if same price bid already exists
     if (!result) {
-        return false;
+        return PRICE_ALREADY_EXIST;
     }
     // update prev link
     if (prev) {
@@ -38,18 +38,18 @@ bool Auction::insertBid(const std::string& bidder, float price, float duration, 
     if (it != _bids.begin()) {
         std::prev(it)->second.higher = &it->second;
     }
-    return true;
+    return SUCCESS;
 }
 
-bool Auction::removeBid(const std::string& bidder, float price) {
+Auction::Error Auction::removeBid(const std::string& bidder, float price) {
     // don't remove start price
     if (bidder.empty()) {
-        return false;
+        return BIDDER_EMPTY;
     }
     // only delete when price and bidder matches
     auto found = _bids.find(price);
     if (found == _bids.end() || found->second.bidder != bidder) {
-        return false;
+        return BIDDER_NOT_FOUND;
     }
     // fix links after deletion
     if (found->second.next) {
@@ -60,7 +60,7 @@ bool Auction::removeBid(const std::string& bidder, float price) {
     }
     std::prev(found)->second.higher = found->second.higher;
     _bids.erase(found);
-    return true;
+    return SUCCESS;
 }
 
 Auction::Bids::const_iterator Auction::getHighestBid(const std::string& exclude_bidder) const {
