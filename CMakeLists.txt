@@ -12,6 +12,7 @@ add_library(decentralized_path_auction
     src/auction.cpp
     src/graph.cpp
     src/path_search.cpp
+    src/path_sync.cpp
 )
 target_include_directories(decentralized_path_auction PUBLIC include)
 

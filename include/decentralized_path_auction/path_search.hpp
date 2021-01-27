@@ -5,6 +5,15 @@
 
 namespace decentralized_path_auction {
 
+struct Visit {
+    Graph::NodePtr node;
+    float time = 0;                                   // expected time of arrival
+    float price = 0;                                  // current bid price of the slot
+    float value = std::numeric_limits<float>::max();  // amount willing to pay for the slot
+};
+
+using Path = std::vector<Visit>;
+
 class PathSearch {
 public:
     enum Error {
@@ -42,15 +51,6 @@ public:
 
         Error validate() const;
     };
-
-    struct Visit {
-        Graph::NodePtr node;
-        float time = 0;                                   // expected time of arrival
-        float price = 0;                                  // current bid price of the slot
-        float value = std::numeric_limits<float>::max();  // amount willing to pay for the slot
-    };
-
-    using Path = std::vector<Visit>;
 
     PathSearch(Config config, Graph graph)
             : _config(std::move(config))

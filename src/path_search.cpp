@@ -42,7 +42,7 @@ PathSearch::Error PathSearch::setDestination(Graph::Nodes nodes) {
     return SUCCESS;
 }
 
-PathSearch::Error PathSearch::iterateSearch(PathSearch::Path& path) {
+PathSearch::Error PathSearch::iterateSearch(Path& path) {
     // check configs
     if (Error config_error = _config.validate()) {
         return config_error;
@@ -149,7 +149,7 @@ PathSearch::Error PathSearch::iterateSearch(PathSearch::Path& path) {
         // willing to pay additionally up to the surplus benefit compared to 2nd best option
         min_cost_visit.value += min_cost_visit.price - min_cost;  // + 2nd best min cost (already stored)
         // update cost estimate of current visit to the min cost of adjacent visits
-        auto& [_, bid] = *bids.find(visit.price);
+        auto& bid = bids.find(visit.price)->second;
         bid.cost_estimate = min_cost;
         bid.cost_nonce = _cost_nonce;
         // truncate rest of path and proceed to previous visit if current visit is a dead end
@@ -173,7 +173,7 @@ bool PathSearch::detectCycle(const Auction::Bid& bid, const Path& path) {
     // set all previous visits in path as visited
     for (auto& visit : path) {
         assert(Graph::validateNode(visit.node));
-        auto& [_, visit_bid] = *visit.node->auction.getBids().find(visit.price);
+        auto& visit_bid = visit.node->auction.getBids().find(visit.price)->second;
         visit_bid.cycle_nonce = _cycle_nonce;
         if (&visit_bid == &bid) {
             break;

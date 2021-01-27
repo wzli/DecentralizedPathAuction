@@ -1,5 +1,6 @@
 #include <decentralized_path_auction/graph.hpp>
 #include <decentralized_path_auction/path_search.hpp>
+#include <decentralized_path_auction/path_sync.hpp>
 #include <gtest/gtest.h>
 
 using namespace decentralized_path_auction;
