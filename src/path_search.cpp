@@ -65,15 +65,16 @@ PathSearch::Error PathSearch::iterateSearch(Path& path) {
     // source visit is required to have the highest bid in auction to claim the source node
     size_t original_path_size = path.size();
     float src_price = src_node->auction.getHighestBid(_config.agent_id)->first;
-    if (path.front().price != src_price) {
-        path.front().price = src_price;
+    if (path.front().min_price != src_price) {
+        path.front().min_price = src_price;
         path.resize(1);
     }
     // truncate visits in path that are invalid (node got deleted/disabled or bid got removed)
     path.erase(std::find_if(path.begin() + 1, path.end(),
                        [](const Visit& visit) {
                            return !Graph::validateNode(visit.node) || visit.node->state >= Graph::Node::DISABLED ||
-                                  !visit.node->auction.getBids().count(visit.price) || visit.time < (&visit - 1)->time;
+                                  !visit.node->auction.getBids().count(visit.min_price) ||
+                                  visit.time < (&visit - 1)->time;
                        }),
             path.end());
     // termination condition for passive paths (any parkable node where there are no other bids)
@@ -137,17 +138,24 @@ PathSearch::Error PathSearch::iterateSearch(Path& path) {
                     min_cost = cost_estimate;
                     min_cost_visit.node = std::move(adj_node);
                     min_cost_visit.time = arrival_time;
-                    min_cost_visit.price = bid_price;
+                    min_cost_visit.min_price = bid_price;
                 } else {
-                    // store second best cost in the value field
-                    min_cost_visit.value = std::min(cost_estimate, min_cost_visit.value);
+                    // store second best cost in the price field
+                    min_cost_visit.price = std::min(cost_estimate, min_cost_visit.price);
                 }
             }
         }
-        // willing to pay additionally up to the surplus benefit compared to 2nd best option
-        min_cost_visit.value += min_cost_visit.price - min_cost;  // + 2nd best min cost (already stored)
+        // decide on a bid price for the min cost visit
+        auto higher_bid = visit.node->auction.getHigherBid(min_cost_visit.min_price, _config.agent_id);
+        if (higher_bid == bids.end()) {
+            // no upper limit, willing to pay additionally up to the surplus benefit compared to 2nd best option
+            min_cost_visit.price += min_cost_visit.min_price - min_cost;  // + 2nd best min cost (already stored)
+        } else {
+            // if upper limit is next highest bid, set price to midway between min and max
+            min_cost_visit.price = 0.5f * (min_cost_visit.min_price + higher_bid->first);
+        }
         // update cost estimate of current visit to the min cost of adjacent visits
-        auto& bid = bids.find(visit.price)->second;
+        auto& bid = bids.find(visit.min_price)->second;
         bid.cost_estimate = min_cost;
         bid.cost_nonce = _cost_nonce;
         // truncate rest of path and proceed to previous visit if current visit is a dead end
@@ -157,7 +165,7 @@ PathSearch::Error PathSearch::iterateSearch(Path& path) {
         }
         // if next visit in path is not the min cost visit found
         if (visit_index + 1 == static_cast<int>(path.size()) || path[visit_index + 1].node != min_cost_visit.node ||
-                path[visit_index + 1].price != min_cost_visit.price) {
+                path[visit_index + 1].min_price != min_cost_visit.min_price) {
             // truncate path upto current visit and append min cost visit to path
             path.resize(visit_index + 1);
             path.push_back(std::move(min_cost_visit));
@@ -194,38 +202,6 @@ float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid
         }
     }
     return bid.cost_estimate;
-}
-
-PathSearch::Error PathSearch::finalizePrice(Path& path) const {
-    if (path.empty()) {
-        return PATH_EMPTY;
-    }
-    for (auto& visit : path) {
-        if (!Graph::validateNode(visit.node)) {
-            return PATH_NODE_INVALID;
-        }
-        if (visit.node->state >= Graph::Node::DISABLED) {
-            return PATH_NODE_DISABLED;
-        }
-        auto& bids = visit.node->auction.getBids();
-        auto bid = bids.find(visit.price);
-        if (bid == bids.end()) {
-            return PATH_BID_NOT_FOUND;
-        }
-        if (bid->second.bidder == _config.agent_id) {
-            return PATH_BID_OVER_SELF;
-        }
-        // find next highest bid that is not from self
-        while (++bid != bids.end() && bid->second.bidder == _config.agent_id)
-            ;
-        // use value as price if there is no higher bid, otherwise bid inbetween the slot
-        visit.price = bid == bids.end() ? visit.value : (visit.price + bid->first) * 0.5f;
-        visit.value = visit.price;
-    }
-    if (path.back().node->state == Graph::Node::NO_PARKING) {
-        return PATH_PARKING_VIOLATION;
-    }
-    return SUCCESS;
 }
 
 }  // namespace decentralized_path_auction

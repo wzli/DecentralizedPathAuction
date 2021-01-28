@@ -44,6 +44,7 @@ public:
 
     const Bids& getBids() const { return _bids; }
     float getStartPrice() const { return _bids.begin()->first; }
+    Bids::const_iterator getHigherBid(float price, const std::string& exclude_bidder = "") const;
     Bids::const_iterator getHighestBid(const std::string& exclude_bidder = "") const;
 
 private:

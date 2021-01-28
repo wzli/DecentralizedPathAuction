@@ -13,13 +13,6 @@ public:
         PATH_EXTENDED,
         PATH_CONTRACTED,
 
-        PATH_EMPTY,
-        PATH_NODE_INVALID,
-        PATH_NODE_DISABLED,
-        PATH_BID_NOT_FOUND,
-        PATH_BID_OVER_SELF,
-        PATH_PARKING_VIOLATION,
-
         DESTINATION_NODE_INVALID,
         DESTINATION_NODE_NO_PARKING,
         DESTINATION_NODE_DUPLICATED,
@@ -53,7 +46,6 @@ public:
 
     Error setDestination(Graph::Nodes nodes);
     Error iterateSearch(Path& path);
-    Error finalizePrice(Path& path) const;
 
     Config& getConfig() { return _config; }
 

@@ -63,12 +63,20 @@ Auction::Error Auction::removeBid(const std::string& bidder, float price) {
     return SUCCESS;
 }
 
-Auction::Bids::const_iterator Auction::getHighestBid(const std::string& exclude_bidder) const {
-    auto highest_bid = std::prev(_bids.end());
-    while (highest_bid != _bids.begin() && highest_bid->second.bidder == exclude_bidder) {
-        --highest_bid;
+Auction::Bids::const_iterator Auction::getHigherBid(float price, const std::string& exclude_bidder) const {
+    auto bid = _bids.upper_bound(price);
+    while (bid != _bids.end() && bid->second.bidder == exclude_bidder) {
+        ++bid;
     }
-    return highest_bid;
+    return bid;
+}
+
+Auction::Bids::const_iterator Auction::getHighestBid(const std::string& exclude_bidder) const {
+    auto bid = std::prev(_bids.end());
+    while (bid != _bids.begin() && bid->second.bidder == exclude_bidder) {
+        --bid;
+    }
+    return bid;
 }
 
 bool Auction::Bid::detectCycle(size_t nonce, const std::string& exclude_bidder) const {
