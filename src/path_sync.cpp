@@ -2,44 +2,6 @@
 
 namespace decentralized_path_auction {
 
-static bool validatePath(const Path& path) {
-    for (auto& visit : path) {
-        if (!Graph::validateNode(visit.node)) {
-            return false;
-        }
-        if (visit.price < 0) {
-            return false;
-        }
-        if (visit.price > visit.value) {
-            return false;
-        }
-        if (&visit != &path.back() && visit.time > (&visit + 1)->time) {
-            return false;
-        }
-    }
-    return true;
-}
-
-static void insertPathBids(const std::string& agent_id, const Path& path, float stop_duration) {
-    Auction::Bid* prev_bid = nullptr;
-    for (auto& visit : path) {
-        // convert timestamp to duration
-        float duration = &visit == &path.back() ? stop_duration : (&visit + 1)->time - visit.time;
-        assert(duration >= 0);
-        if (!visit.node->auction.insertBid(agent_id, visit.price, duration, prev_bid)) {
-            assert(0 && "insert bid failed");
-        };
-    }
-}
-
-static void removePathBids(const std::string& agent_id, Path::iterator it, Path::iterator end) {
-    for (; it != end; ++it) {
-        if (!it->node->auction.removeBid(agent_id, it->price)) {
-            assert(0 && "remove bid failed");
-        }
-    }
-}
-
 PathSync::Error PathSync::updatePath(const std::string& agent_id, Path path, float stop_duration, size_t path_id) {
     if (agent_id.empty()) {
         return AGENT_ID_EMPTY;
@@ -57,8 +19,8 @@ PathSync::Error PathSync::updatePath(const std::string& agent_id, Path path, flo
         return PATH_ID_STALE;
     }
     // remove old bids
-    removePathBids(agent_id, info.path.begin(), info.path.end());
-    insertPathBids(agent_id, path, stop_duration);
+    Visit::removeBids(info.path.begin(), info.path.end(), agent_id);
+    Visit::insertBids(path, agent_id, stop_duration);
     // save path (delete if path is empty)
     if (path.empty()) {
         _paths.erase(agent_id);
@@ -84,7 +46,7 @@ PathSync::Error PathSync::updateProgress(const std::string& agent_id, size_t pro
     if (progress < info.progress) {
         return PROGRESS_DECREASE_DENIED;
     }
-    removePathBids(agent_id, info.path.begin() + info.progress, info.path.begin() + progress);
+    Visit::removeBids(info.path.begin() + info.progress, info.path.begin() + progress, agent_id);
     info.progress = progress;
     return SUCCESS;
 }

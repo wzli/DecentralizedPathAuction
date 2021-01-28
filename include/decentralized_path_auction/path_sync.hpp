@@ -1,7 +1,6 @@
 #pragma once
 
-#include <decentralized_path_auction/path_search.hpp>
-
+#include <decentralized_path_auction/path.hpp>
 #include <unordered_map>
 
 namespace decentralized_path_auction {

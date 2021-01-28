@@ -19,9 +19,6 @@ PathSearch::Error PathSearch::Config::validate() const {
 }
 
 PathSearch::Error PathSearch::setDestination(Graph::Nodes nodes) {
-    if (!_graph.findAnyNode(Graph::Node::DISABLED)) {
-        return GRAPH_EMPTY;
-    }
     // only reset cost estimates when new destinations are added
     _cost_nonce += std::any_of(
             nodes.begin(), nodes.end(), [this](const Graph::NodePtr& node) { return !_dst_nodes.containsNode(node); });
@@ -29,8 +26,8 @@ PathSearch::Error PathSearch::setDestination(Graph::Nodes nodes) {
     _dst_nodes.detachNodes();
     for (auto& node : nodes) {
         // verify each destination node
-        if (!_graph.containsNode(node)) {
-            return DESTINATION_NODE_NOT_FOUND;
+        if (!Graph::validateNode(node)) {
+            return DESTINATION_NODE_INVALID;
         }
         if (node->state >= Graph::Node::NO_PARKING) {
             return DESTINATION_NODE_NO_PARKING;
@@ -52,9 +49,9 @@ PathSearch::Error PathSearch::iterateSearch(Path& path) {
         return SOURCE_NODE_NOT_PROVIDED;
     }
     auto& src_node = path.front().node;
-    if (!_graph.containsNode(src_node)) {
+    if (!Graph::validateNode(src_node)) {
         path.resize(1);
-        return SOURCE_NODE_NOT_FOUND;
+        return SOURCE_NODE_INVALID;
     }
     if (src_node->state >= Graph::Node::DISABLED) {
         path.resize(1);
@@ -204,8 +201,8 @@ PathSearch::Error PathSearch::finalizePrice(Path& path) const {
         return PATH_EMPTY;
     }
     for (auto& visit : path) {
-        if (!_graph.containsNode(visit.node)) {
-            return PATH_NODE_NOT_FOUND;
+        if (!Graph::validateNode(visit.node)) {
+            return PATH_NODE_INVALID;
         }
         if (visit.node->state >= Graph::Node::DISABLED) {
             return PATH_NODE_DISABLED;

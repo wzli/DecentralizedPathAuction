@@ -1,18 +1,9 @@
 #pragma once
 
-#include <decentralized_path_auction/graph.hpp>
+#include <decentralized_path_auction/path.hpp>
 #include <functional>
 
 namespace decentralized_path_auction {
-
-struct Visit {
-    Graph::NodePtr node;
-    float time = 0;                                   // expected time of arrival
-    float price = 0;                                  // current bid price of the slot
-    float value = std::numeric_limits<float>::max();  // amount willing to pay for the slot
-};
-
-using Path = std::vector<Visit>;
 
 class PathSearch {
 public:
@@ -23,25 +14,23 @@ public:
         PATH_CONTRACTED,
 
         PATH_EMPTY,
-        PATH_NODE_NOT_FOUND,
+        PATH_NODE_INVALID,
         PATH_NODE_DISABLED,
         PATH_BID_NOT_FOUND,
         PATH_BID_OVER_SELF,
         PATH_PARKING_VIOLATION,
 
-        DESTINATION_NODE_NOT_FOUND,
+        DESTINATION_NODE_INVALID,
         DESTINATION_NODE_NO_PARKING,
         DESTINATION_NODE_DUPLICATED,
 
         SOURCE_NODE_NOT_PROVIDED,
-        SOURCE_NODE_NOT_FOUND,
+        SOURCE_NODE_INVALID,
         SOURCE_NODE_DISABLED,
 
         CONFIG_AGENT_ID_EMPTY,
         CONFIG_TIME_EXCHANGE_RATE_NON_POSITIVE,
         CONFIG_TRAVEL_TIME_MISSING,
-
-        GRAPH_EMPTY,
     };
 
     using TravelTime =
@@ -59,15 +48,13 @@ public:
         Error validate() const;
     };
 
-    PathSearch(Config config, Graph graph)
-            : _config(std::move(config))
-            , _graph(std::move(graph)) {}
+    PathSearch(Config config)
+            : _config(std::move(config)) {}
 
     Error setDestination(Graph::Nodes nodes);
     Error iterateSearch(Path& path);
     Error finalizePrice(Path& path) const;
 
-    Graph& getGraph() { return _graph; }
     Config& getConfig() { return _config; }
 
 private:
@@ -75,7 +62,6 @@ private:
     float getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid) const;
 
     Config _config;
-    Graph _graph;
     Graph _dst_nodes;
     size_t _cycle_nonce = 0;
     size_t _cost_nonce = 0;
