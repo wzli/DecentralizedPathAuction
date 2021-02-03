@@ -1,6 +1,6 @@
 #pragma once
 
-#include <decentralized_path_auction/path.hpp>
+#include <decentralized_path_auction/graph.hpp>
 #include <functional>
 
 namespace decentralized_path_auction {

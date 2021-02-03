@@ -11,7 +11,7 @@ public:
         SUCCESS,
         BIDDER_EMPTY,
         BIDDER_NOT_FOUND,
-        BIDDER_PREV_MISMATCH,
+        BIDDER_MISMATCH,
         PRICE_BELOW_START,
         PRICE_ALREADY_EXIST,
         DURATION_NEGATIVE,

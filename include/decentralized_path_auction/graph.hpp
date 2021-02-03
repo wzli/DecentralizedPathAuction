@@ -23,8 +23,8 @@ public:
         enum State { ENABLED, NO_PARKING, NO_STOPPING, DISABLED, DELETED } state;
 
         // Constructor
-        Node(Point2D position_, float base_toll_ = 0, State state_ = ENABLED)
-                : auction(base_toll_)
+        Node(Point2D position_, float start_price_ = 0, State state_ = ENABLED)
+                : auction(start_price_)
                 , position(position_)
                 , state(state_) {}
     };
@@ -58,5 +58,14 @@ public:
 private:
     RTree _nodes;
 };
+
+struct Visit {
+    Graph::NodePtr node;
+    float time = 0;
+    float price = std::numeric_limits<float>::max();
+    float min_price = 0;
+};
+
+using Path = std::vector<Visit>;
 
 }  // namespace decentralized_path_auction

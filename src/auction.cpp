@@ -17,7 +17,7 @@ Auction::Error Auction::insertBid(const std::string& bidder, float price, float 
     }
     // linked bids must be from the same bidder
     if (prev && prev->bidder != bidder) {
-        return BIDDER_PREV_MISMATCH;
+        return BIDDER_MISMATCH;
     }
     // insert bid
     auto [it, result] = _bids.insert({price, {bidder, duration}});
