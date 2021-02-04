@@ -9,6 +9,7 @@ class PathSearch {
 public:
     enum Error {
         SUCCESS = 0,
+        ITERATIONS_REACHED,
 
         PATH_EXTENDED,
         PATH_CONTRACTED,
@@ -45,17 +46,20 @@ public:
             : _config(std::move(config)) {}
 
     Error setDestination(Graph::Nodes nodes);
-    Error iterateSearch(Path& path);
+    Error iterateSearch(Path& path, size_t iterations);
 
     Config& editConfig() { return _config; }
 
 private:
-    bool detectCycle(const Auction::Bid& bid, const Path& path);
+    float findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Path& path) const;
+    bool appendMinCostVisit(size_t visit_index, Path& path) const;
+    bool checkTermination(const Visit& visit) const;
+    bool detectCycle(const Auction::Bid& bid, const Path& path) const;
     float getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid) const;
 
     Config _config;
     Graph _dst_nodes;
-    size_t _cycle_nonce = 0;
+    mutable size_t _cycle_nonce = 0;
     size_t _cost_nonce = 0;
 };
 
