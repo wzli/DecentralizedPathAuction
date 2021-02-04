@@ -47,7 +47,7 @@ public:
     Error setDestination(Graph::Nodes nodes);
     Error iterateSearch(Path& path);
 
-    Config& getConfig() { return _config; }
+    Config& editConfig() { return _config; }
 
 private:
     bool detectCycle(const Auction::Bid& bid, const Path& path);

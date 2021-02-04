@@ -10,8 +10,10 @@ public:
     enum Error {
         SUCCESS,
         VISIT_NODE_INVALID,
+        VISIT_PRICE_ALREADY_EXIST,
         VISIT_PRICE_NOT_ABOVE_MIN_PRICE,
         VISIT_MIN_PRICE_NOT_ABOVE_START_PRICE,
+        VISIT_BID_ALREADY_REMOVED,
         PATH_TIME_DECREASED,
         PATH_EMPTY,
         PATH_ID_STALE,
@@ -30,6 +32,9 @@ public:
     };
 
     using Paths = std::unordered_map<std::string, PathInfo>;
+
+    // remove all bids on destruction
+    ~PathSync();
 
     Error updatePath(const std::string& agent_id, const Path& path, size_t path_id,
             float stop_duration = std::numeric_limits<float>::max());

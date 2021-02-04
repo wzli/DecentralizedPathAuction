@@ -34,6 +34,12 @@ public:
     using RTreeNode = std::pair<Point2D, NodePtr>;
     using RTree = bg::index::rtree<RTreeNode, bg::index::rstar<16>>;
 
+    // non-copyable (to force ownership of nodes to a single graph instance)
+    Graph(const Graph&) = delete;
+    Graph& operator=(const Graph&) = delete;
+    Graph(Graph&&) = default;
+    Graph& operator=(Graph&&) = default;
+    Graph() = default;
     // mark all nodes as deleted on destruction
     ~Graph();
 
@@ -48,8 +54,8 @@ public:
     }
 
     NodePtr findNode(Point2D position) const { return query(bg::index::contains(position)); }
-    NodePtr findNearestNode(Point2D position, Node::State threshold) const;
-    NodePtr findAnyNode(Node::State threshold) const;
+    NodePtr findNearestNode(Point2D position, Node::State criterion) const;
+    NodePtr findAnyNode(Node::State criterion) const;
 
     const RTree& getNodes() const { return _nodes; }
     bool containsNode(const NodePtr& node) const { return validateNode(node) && (node == findNode(node->position)); }

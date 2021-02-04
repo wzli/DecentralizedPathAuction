@@ -9,16 +9,22 @@ static void insertBids(const std::string& agent_id, const Path& path, float stop
         // convert timestamp to duration
         float duration = ++next_visit == path.end() ? stop_duration : next_visit->time - visit.time;
         if (visit.node->auction.insertBid(agent_id, visit.price, duration, prev_bid)) {
-            assert(0 && "insert bid failed");
+            assert(!"insert bid failed");
         };
     }
 }
 
-static void removeBids(const std::string& agent_id, Path::const_iterator it, Path::const_iterator end) {
+static PathSync::Error removeBids(const std::string& agent_id, Path::const_iterator it, Path::const_iterator end) {
+    bool error = false;
     for (; it != end; ++it) {
-        if (it->node->auction.removeBid(agent_id, it->price)) {
-            assert(0 && "remove bid failed");
-        }
+        error |= it->node->auction.removeBid(agent_id, it->price);
+    }
+    return error ? PathSync::VISIT_BID_ALREADY_REMOVED : PathSync::SUCCESS;
+}
+
+PathSync::~PathSync() {
+    for (auto& [agent_id, info] : _paths) {
+        removeBids(agent_id, info.path.begin() + info.progress, info.path.end());
     }
 }
 
@@ -35,6 +41,14 @@ PathSync::Error PathSync::updatePath(
         return path_error;
     }
     auto& info = _paths[agent_id];
+    // check if bid price is already taken by some other agent
+    for (auto& visit : path) {
+        auto& bids = visit.node->auction.getBids();
+        auto found = bids.find(visit.price);
+        if (found != bids.end() && found->second.bidder != agent_id) {
+            return VISIT_PRICE_ALREADY_EXIST;
+        }
+    }
     // update path id
     if (path_id > info.path_id) {
         info.path_id = path_id;
@@ -42,12 +56,12 @@ PathSync::Error PathSync::updatePath(
         return PATH_ID_STALE;
     }
     // remove old bids
-    removeBids(agent_id, info.path.begin() + info.progress, info.path.end());
-    insertBids(agent_id, path, stop_duration);
+    auto error = removeBids(agent_id, info.path.begin() + info.progress, info.path.end());
     // update path
     info.path = path;
     info.progress = 0;
-    return SUCCESS;
+    insertBids(agent_id, path, stop_duration);
+    return error;
 }
 
 PathSync::Error PathSync::removePath(const std::string& agent_id) {
@@ -55,9 +69,9 @@ PathSync::Error PathSync::removePath(const std::string& agent_id) {
     if (found == _paths.end()) {
         return AGENT_ID_NOT_FOUND;
     }
-    removeBids(agent_id, found->second.path.begin() + found->second.progress, found->second.path.end());
+    auto error = removeBids(agent_id, found->second.path.begin() + found->second.progress, found->second.path.end());
     _paths.erase(found);
-    return SUCCESS;
+    return error;
 }
 
 PathSync::Error PathSync::updateProgress(const std::string& agent_id, size_t progress, size_t path_id) {
@@ -76,9 +90,9 @@ PathSync::Error PathSync::updateProgress(const std::string& agent_id, size_t pro
         return PROGRESS_DECREASE_DENIED;
     }
     // remove bids upto the new progress
-    removeBids(agent_id, info.path.begin() + info.progress, info.path.begin() + progress);
+    auto error = removeBids(agent_id, info.path.begin() + info.progress, info.path.begin() + progress);
     info.progress = progress;
-    return SUCCESS;
+    return error;
 }
 
 PathSync::Error PathSync::getEntitledSegment(const std::string& agent_id, Path& segment) const {

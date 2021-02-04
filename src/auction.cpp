@@ -2,6 +2,17 @@
 
 namespace decentralized_path_auction {
 
+Auction::~Auction() {
+    for (auto& [_, bid] : _bids) {
+        if (bid.next) {
+            bid.next->prev = bid.prev;
+        }
+        if (bid.prev) {
+            bid.prev->next = bid.next;
+        }
+    }
+}
+
 Auction::Error Auction::insertBid(const std::string& bidder, float price, float duration, Bid*& prev) {
     // must contain bidder name
     if (bidder.empty()) {
@@ -27,6 +38,9 @@ Auction::Error Auction::insertBid(const std::string& bidder, float price, float 
     }
     // update prev link
     if (prev) {
+        if ((it->second.next = prev->next)) {
+            prev->next->prev = &it->second;
+        }
         prev->next = &it->second;
     }
     it->second.prev = prev;
@@ -48,17 +62,21 @@ Auction::Error Auction::removeBid(const std::string& bidder, float price) {
     }
     // only delete when price and bidder matches
     auto found = _bids.find(price);
-    if (found == _bids.end() || found->second.bidder != bidder) {
+    if (found == _bids.end()) {
+        return PRICE_NOT_FOUND;
+    }
+    auto& bid = found->second;
+    if (bid.bidder != bidder) {
         return BIDDER_NOT_FOUND;
     }
     // fix links after deletion
-    if (found->second.next) {
-        found->second.next->prev = found->second.prev;
+    if (bid.next) {
+        bid.next->prev = bid.prev;
     }
-    if (found->second.prev) {
-        found->second.prev->next = found->second.next;
+    if (bid.prev) {
+        bid.prev->next = bid.next;
     }
-    std::prev(found)->second.higher = found->second.higher;
+    std::prev(found)->second.higher = bid.higher;
     _bids.erase(found);
     return SUCCESS;
 }

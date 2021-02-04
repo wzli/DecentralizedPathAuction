@@ -45,15 +45,15 @@ Graph::RTree Graph::detachNodes() {
     return detached;
 }
 
-Graph::NodePtr Graph::findNearestNode(Point2D position, Node::State threshold) const {
-    return query(bg::index::nearest(position, 1) && bg::index::satisfies([threshold](const RTreeNode& rt_node) {
-        return rt_node.second->state <= threshold;
+Graph::NodePtr Graph::findNearestNode(Point2D position, Node::State criterion) const {
+    return query(bg::index::nearest(position, 1) && bg::index::satisfies([criterion](const RTreeNode& rt_node) {
+        return rt_node.second->state <= criterion;
     }));
 }
 
-Graph::NodePtr Graph::findAnyNode(Node::State threshold) const {
+Graph::NodePtr Graph::findAnyNode(Node::State criterion) const {
     return query(
-            bg::index::satisfies([threshold](const RTreeNode& rt_node) { return rt_node.second->state <= threshold; }));
+            bg::index::satisfies([criterion](const RTreeNode& rt_node) { return rt_node.second->state <= criterion; }));
 }
 
 }  // namespace decentralized_path_auction

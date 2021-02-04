@@ -154,6 +154,7 @@ TEST(auction, collision_checks) {
 // test evading into aile
 // test cyclic dependencies check
 // test back and forth dependencies
+// test if destructors of graph, auction, path search work as intended
 
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);

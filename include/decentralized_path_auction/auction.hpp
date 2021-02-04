@@ -12,6 +12,7 @@ public:
         BIDDER_EMPTY,
         BIDDER_NOT_FOUND,
         BIDDER_MISMATCH,
+        PRICE_NOT_FOUND,
         PRICE_BELOW_START,
         PRICE_ALREADY_EXIST,
         DURATION_NEGATIVE,
@@ -36,11 +37,19 @@ public:
 
     using Bids = std::map<float, Bid>;
 
+    // non-copyable
+    Auction(const Auction&) = delete;
+    Auction& operator=(const Auction&) = delete;
+    Auction(Auction&&) = default;
+    Auction& operator=(Auction&&) = default;
+
     Auction(float start_price)
             : _bids({{start_price, {""}}}) {}
+    ~Auction();
 
     Error insertBid(const std::string& bidder, float price, float duration, Bid*& prev);
     Error removeBid(const std::string& bidder, float price);
+    void resetBids(float start_price) { *this = Auction(start_price); }
 
     const Bids& getBids() const { return _bids; }
     float getStartPrice() const { return _bids.begin()->first; }

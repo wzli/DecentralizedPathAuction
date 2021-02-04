@@ -63,12 +63,8 @@ PathSearch::Error PathSearch::iterateSearch(Path& path) {
         return DESTINATION_NODE_NO_PARKING;
     }
     // source visit is required to have the highest bid in auction to claim the source node
+    path.front().min_price = src_node->auction.getHighestBid(_config.agent_id)->first;
     size_t original_path_size = path.size();
-    float src_price = src_node->auction.getHighestBid(_config.agent_id)->first;
-    if (path.front().min_price != src_price) {
-        path.front().min_price = src_price;
-        path.resize(1);
-    }
     // truncate visits in path that are invalid (node got deleted/disabled or bid got removed)
     path.erase(std::find_if(path.begin() + 1, path.end(),
                        [](const Visit& visit) {
@@ -79,7 +75,7 @@ PathSearch::Error PathSearch::iterateSearch(Path& path) {
             path.end());
     // termination condition for passive paths (any parkable node where there are no other bids)
     if ((_dst_nodes.getNodes().empty() && path.back().node->state < Graph::Node::NO_PARKING &&
-                path.back().node->auction.getBids().size() == 1) ||
+                path.back().node->auction.getHighestBid(_config.agent_id)->second.bidder.empty()) ||
             // termination condition for regular destinations
             _dst_nodes.containsNode(path.back().node)) {
         return SUCCESS;
@@ -104,7 +100,7 @@ PathSearch::Error PathSearch::iterateSearch(Path& path) {
             // calculate the expected time to arrive at the adjacent node (without wait)
             const auto& prev_node = visit_index == 0 ? nullptr : path[visit_index - 1].node;
             float earliest_arrival_time = visit.time + _config.travel_time(prev_node, visit.node, adj_node);
-            assert(earliest_arrival_time >= 0);
+            assert(earliest_arrival_time > visit.time && "travel time must be positive");
             float wait_duration = 0;
             // iterate in reverse order (highest to lowest) through each bid in the auction of the adjacent node
             auto& adj_bids = adj_node->auction.getBids();
@@ -114,11 +110,11 @@ PathSearch::Error PathSearch::iterateSearch(Path& path) {
                 if (bid.bidder == _config.agent_id) {
                     continue;
                 }
-                // wait duration atleast as long as the next total duration of next highest bid in the auction
+                // wait duration is atleast as long as the next total duration of next higher bid
                 if (adj_bid != adj_bids.rbegin()) {
                     wait_duration = std::max(wait_duration, std::prev(adj_bid)->second.totalDuration());
                 }
-                // skip bid if it requires waiting but previous node doesn't allow it
+                // skip bid if it requires waiting but current node doesn't allow it
                 if (visit.node->state == Graph::Node::NO_STOPPING && wait_duration > earliest_arrival_time) {
                     continue;
                 }
@@ -128,7 +124,7 @@ PathSearch::Error PathSearch::iterateSearch(Path& path) {
                 }
                 // arrival_time factors in how long you have to wait
                 float arrival_time = std::max(wait_duration, earliest_arrival_time);
-                // time cost is proportinal to difference in expected arrival time from current node to adjacent node
+                // time cost is proportinal to duration between arrival and departure
                 float time_cost = (arrival_time - visit.time) * _config.time_exchange_rate;
                 assert(time_cost >= 0);
                 // total cost of visit aggregates time cost, price of bid, and estimated cost from adj node to dst
@@ -151,7 +147,7 @@ PathSearch::Error PathSearch::iterateSearch(Path& path) {
             // no upper limit, willing to pay additionally up to the surplus benefit compared to 2nd best option
             min_cost_visit.price += min_cost_visit.min_price - min_cost;  // + 2nd best min cost (already stored)
         } else {
-            // if upper limit is next highest bid, set price to midway between min and max
+            // if upper limit is next highest bid, set price to midway between bids
             min_cost_visit.price = 0.5f * (min_cost_visit.min_price + higher_bid->first);
         }
         // update cost estimate of current visit to the min cost of adjacent visits
@@ -161,11 +157,10 @@ PathSearch::Error PathSearch::iterateSearch(Path& path) {
         // truncate rest of path and proceed to previous visit if current visit is a dead end
         if (!min_cost_visit.node) {
             path.resize(visit_index + 1);
-            continue;
         }
         // if next visit in path is not the min cost visit found
-        if (visit_index + 1 == static_cast<int>(path.size()) || path[visit_index + 1].node != min_cost_visit.node ||
-                path[visit_index + 1].min_price != min_cost_visit.min_price) {
+        else if (&visit == &path.back() || (&visit + 1)->node != min_cost_visit.node ||
+                 (&visit + 1)->min_price != min_cost_visit.min_price) {
             // truncate path upto current visit and append min cost visit to path
             path.resize(visit_index + 1);
             path.push_back(std::move(min_cost_visit));
@@ -179,7 +174,7 @@ bool PathSearch::detectCycle(const Auction::Bid& bid, const Path& path) {
     // set all previous visits in path as visited
     for (auto& visit : path) {
         assert(Graph::validateNode(visit.node));
-        auto& visit_bid = visit.node->auction.getBids().find(visit.price)->second;
+        auto& visit_bid = visit.node->auction.getBids().find(visit.min_price)->second;
         visit_bid.cycle_nonce = _cycle_nonce;
         if (&visit_bid == &bid) {
             break;
