@@ -37,11 +37,9 @@ public:
 
     using Bids = std::map<float, Bid>;
 
-    // non-copyable
+    // non-copyable non-movable
     Auction(const Auction&) = delete;
     Auction& operator=(const Auction&) = delete;
-    Auction(Auction&&) = default;
-    Auction& operator=(Auction&&) = default;
 
     Auction(float start_price)
             : _bids({{start_price, {""}}}) {}
@@ -49,7 +47,7 @@ public:
 
     Error insertBid(const std::string& bidder, float price, float duration, Bid*& prev);
     Error removeBid(const std::string& bidder, float price);
-    void resetBids(float start_price) { *this = Auction(start_price); }
+    void resetBids(float start_price) { this->~Auction(), new (this) Auction(start_price); }
 
     const Bids& getBids() const { return _bids; }
     float getStartPrice() const { return _bids.begin()->first; }

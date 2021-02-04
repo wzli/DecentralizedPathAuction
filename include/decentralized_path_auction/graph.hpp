@@ -39,7 +39,6 @@ public:
     Graph& operator=(const Graph&) = delete;
     Graph(Graph&&) = default;
     Graph& operator=(Graph&&) = default;
-    Graph() = default;
     // mark all nodes as deleted on destruction
     ~Graph();
 

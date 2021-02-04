@@ -76,7 +76,9 @@ Auction::Error Auction::removeBid(const std::string& bidder, float price) {
     if (bid.prev) {
         bid.prev->next = bid.next;
     }
-    std::prev(found)->second.higher = bid.higher;
+    if (found != _bids.begin()) {
+        std::prev(found)->second.higher = bid.higher;
+    }
     _bids.erase(found);
     return SUCCESS;
 }
