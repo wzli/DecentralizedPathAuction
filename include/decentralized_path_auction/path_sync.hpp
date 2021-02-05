@@ -35,7 +35,7 @@ public:
 
     // non-copyable but movable
     ~PathSync() { clearPaths(); }
-    PathSync& operator=(PathSync&&) = default;
+    PathSync& operator=(PathSync&& rhs) { return clearPaths(), _paths.swap(rhs._paths), *this; }
 
     Error updatePath(const std::string& agent_id, const Path& path, size_t path_id,
             float stop_duration = std::numeric_limits<float>::max());

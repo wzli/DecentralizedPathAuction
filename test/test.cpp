@@ -36,6 +36,76 @@ void print_graph(const Graph& graph) {
     printf("%lu nodes total\r\n", graph.getNodes().size());
 }
 
+TEST(graph, destruct) {
+    Graph::Nodes nodes;
+    {
+        Graph graph;
+        make_pathway(graph, nodes, {0, 0}, {1, 10}, 11);
+    }
+    ASSERT_FALSE(nodes.empty());
+    for (auto& node : nodes) {
+        EXPECT_TRUE(node->edges.empty());
+        EXPECT_EQ(node->state, Graph::Node::DELETED);
+        EXPECT_EQ(node.use_count(), 1);
+    }
+}
+
+TEST(graph, move_assign) {
+    Graph::Nodes nodes1, nodes2;
+    Graph graph1, graph2;
+    make_pathway(graph1, nodes1, {0, 0}, {1, 10}, 11);
+    make_pathway(graph2, nodes2, {0, 0}, {1, 10}, 11);
+    ASSERT_FALSE(nodes1.empty());
+    ASSERT_FALSE(nodes2.empty());
+    graph1 = std::move(graph2);
+    for (auto& node : nodes1) {
+        EXPECT_TRUE(node->edges.empty());
+        EXPECT_EQ(node->state, Graph::Node::DELETED);
+        EXPECT_EQ(node.use_count(), 1);
+    }
+    for (auto& node : nodes2) {
+        EXPECT_FALSE(node->edges.empty());
+        EXPECT_NE(node->state, Graph::Node::DELETED);
+        EXPECT_NE(node.use_count(), 1);
+    }
+}
+
+TEST(graph, insert) {
+    Graph graph;
+    auto node = std::make_shared<Graph::Node>(Point2D{0, 0});
+    // valid insert
+    ASSERT_TRUE(graph.insertNode(node));
+    // can't insert duplicate positions
+    ASSERT_FALSE(graph.insertNode(node));
+    // cant insert deleted node
+    auto deleted_node = std::make_shared<Graph::Node>(Point2D{1, 1}, Graph::Node::DELETED);
+    ASSERT_FALSE(graph.insertNode(deleted_node));
+    // null check
+    ASSERT_FALSE(graph.insertNode(nullptr));
+    // only first insert was valid
+    ASSERT_EQ(graph.getNodes().size(), 1);
+}
+
+TEST(graph, remove) {
+    Graph graph;
+    // null check
+    ASSERT_FALSE(graph.removeNode(nullptr));
+    // reject delete non-existing node
+    auto node = std::make_shared<Graph::Node>(Point2D{0, 0});
+    ASSERT_FALSE(graph.removeNode(std::move(node)));
+    // valid delete
+    node = std::make_shared<Graph::Node>(Point2D{0, 0});
+    node->edges.push_back(nullptr);
+    ASSERT_TRUE(graph.insertNode(node));
+    ASSERT_TRUE(graph.removeNode(node));
+    // node should be in deleted state
+    ASSERT_TRUE(node->edges.empty());
+    ASSERT_EQ(node->state, Graph::Node::DELETED);
+    ASSERT_EQ(node.use_count(), 1);
+    // all nodes removed
+    ASSERT_TRUE(graph.getNodes().empty());
+}
+
 TEST(graph, insert_nearest_remove) {
     Graph graph;
     // test insert

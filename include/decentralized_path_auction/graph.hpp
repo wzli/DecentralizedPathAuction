@@ -23,7 +23,7 @@ public:
         enum State { ENABLED, NO_PARKING, NO_STOPPING, DISABLED, DELETED } state;
 
         // Constructor
-        Node(Point2D position_, float start_price_ = 0, State state_ = ENABLED)
+        Node(Point2D position_, State state_ = ENABLED, float start_price_ = 0)
                 : auction(start_price_)
                 , position(position_)
                 , state(state_) {}
@@ -36,7 +36,7 @@ public:
 
     // non-copyable but movable (to force ownership of nodes to a single graph instance)
     ~Graph() { clearNodes(); }
-    Graph& operator=(Graph&&) = default;
+    Graph& operator=(Graph&& rhs) { return clearNodes(), _nodes.swap(rhs._nodes), *this; }
 
     bool insertNode(NodePtr node);
     bool removeNode(NodePtr node);
