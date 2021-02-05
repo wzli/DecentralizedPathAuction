@@ -90,12 +90,12 @@ PathSync::Error PathSync::removePath(const std::string& agent_id) {
 }
 
 PathSync::Error PathSync::clearPaths() {
-    bool error = false;
+    int error = SUCCESS;
     for (auto& [agent_id, info] : _paths) {
         error |= removeBids(agent_id, info.path.begin() + info.progress, info.path.end());
     }
     _paths.clear();
-    return error ? PathSync::VISIT_BID_ALREADY_REMOVED : PathSync::SUCCESS;
+    return static_cast<Error>(error);
 }
 
 PathSync::Error PathSync::getEntitledSegment(const std::string& agent_id, Path& segment) const {
