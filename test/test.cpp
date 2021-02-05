@@ -14,7 +14,7 @@ void make_pathway(Graph& graph, Graph::Nodes& pathway, Point2D a, Point2D b, siz
     bg::divide_value(inc, n - 1);
     pathway.clear();
     for (size_t i = 0; i < n; ++i, bg::add_point(pos, inc)) {
-        auto node = std::make_shared<Graph::Node>(pos, state);
+        Graph::NodePtr node(new Graph::Node{pos, state});
         ASSERT_TRUE(graph.insertNode(node));
         if (i > 0) {
             node->edges.push_back(pathway.back());
@@ -73,14 +73,13 @@ TEST(graph, move_assign) {
 
 TEST(graph, insert_node) {
     Graph graph;
-    auto node = std::make_shared<Graph::Node>(Point2D{0, 0});
+    Graph::NodePtr node(new Graph::Node{{0, 0}});
     // valid insert
     ASSERT_TRUE(graph.insertNode(node));
     // can't insert duplicate positions
     ASSERT_FALSE(graph.insertNode(node));
     // cant insert deleted node
-    auto deleted_node = std::make_shared<Graph::Node>(Point2D{1, 1}, Graph::Node::DELETED);
-    ASSERT_FALSE(graph.insertNode(deleted_node));
+    ASSERT_FALSE(graph.insertNode({1, 1}, Graph::Node::DELETED));
     // null check
     ASSERT_FALSE(graph.insertNode(nullptr));
     // only first insert was valid
@@ -92,10 +91,10 @@ TEST(graph, remove_node) {
     // null check
     ASSERT_FALSE(graph.removeNode(nullptr));
     // reject delete non-existing node
-    auto node = std::make_shared<Graph::Node>(Point2D{0, 0});
+    Graph::NodePtr node(new Graph::Node{{0, 0}});
     ASSERT_FALSE(graph.removeNode(std::move(node)));
     // valid delete
-    node = std::make_shared<Graph::Node>(Point2D{0, 0});
+    node = Graph::NodePtr(new Graph::Node{{0, 0}});
     node->edges.push_back(nullptr);
     ASSERT_TRUE(graph.insertNode(node));
     ASSERT_TRUE(graph.removeNode(node));
@@ -125,7 +124,7 @@ TEST(graph, detach_nodes) {
 TEST(graph, find_node) {
     Graph graph;
     EXPECT_FALSE(graph.findNode({0, 0}));
-    ASSERT_TRUE(graph.insertNode(std::make_shared<Graph::Node>(Point2D{0, 0})));
+    ASSERT_TRUE(graph.insertNode(Point2D{0, 0}));
     EXPECT_TRUE(graph.findNode({0, 0}));
 }
 
@@ -142,7 +141,7 @@ TEST(graph, find_nearest_node) {
 TEST(graph, find_any_node) {
     Graph graph;
     EXPECT_FALSE(graph.findAnyNode(Graph::Node::ENABLED));
-    ASSERT_TRUE(graph.insertNode(std::make_shared<Graph::Node>(Point2D{0, 0}, Graph::Node::NO_PARKING)));
+    ASSERT_TRUE(graph.insertNode({0, 0}, Graph::Node::NO_PARKING));
     EXPECT_TRUE(graph.findAnyNode(Graph::Node::NO_PARKING));
     EXPECT_FALSE(graph.findAnyNode(Graph::Node::ENABLED));
 }
@@ -150,14 +149,14 @@ TEST(graph, find_any_node) {
 TEST(graph, contains_node) {
     Graph graph;
     EXPECT_FALSE(graph.containsNode(nullptr));
-    auto node = std::make_shared<Graph::Node>(Point2D{0, 0});
+    Graph::NodePtr node(new Graph::Node{{0, 0}});
     EXPECT_FALSE(graph.containsNode(node));
     EXPECT_TRUE(graph.insertNode(node));
     EXPECT_TRUE(graph.containsNode(node));
 }
 
 TEST(graph, validate_node) {
-    auto node = std::make_shared<Graph::Node>(Point2D{0, 0});
+    Graph::NodePtr node(new Graph::Node{{0, 0}});
     EXPECT_TRUE(Graph::validateNode(node));
     node->state = Graph::Node::DELETED;
     EXPECT_FALSE(Graph::validateNode(node));
@@ -206,7 +205,7 @@ TEST(auction, insert_bid) {
     prev = prev->prev;
     EXPECT_EQ(auction.insertBid("A", start_price + 8.5f, 0, prev), Auction::SUCCESS);
     int i = 0;
-    for (auto bid = bids.begin()->second.higher; bid; bid = bid->next) {
+    for (auto bid = bids.begin()->second.higher; bid; bid = bid->next, ++i) {
         if (bid->prev) {
             EXPECT_EQ(bid->prev->next, bid);
         }
@@ -216,7 +215,6 @@ TEST(auction, insert_bid) {
         if (bid->higher) {
             EXPECT_EQ(bid->higher->prev, bid);
         }
-        ++i;
     }
     EXPECT_EQ(i, bids.size() - 1);
 }

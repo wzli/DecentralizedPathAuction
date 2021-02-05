@@ -17,16 +17,10 @@ using Point2D = bg::model::d2::point_xy<float>;
 class Graph {
 public:
     struct Node {
-        Auction auction;
-        std::vector<std::shared_ptr<Node>> edges;
         const Point2D position;
-        enum State { ENABLED, NO_PARKING, NO_STOPPING, DISABLED, DELETED } state;
-
-        // Constructor
-        Node(Point2D position_, State state_ = ENABLED, float start_price_ = 0)
-                : auction(start_price_)
-                , position(position_)
-                , state(state_) {}
+        enum State { ENABLED, NO_PARKING, NO_STOPPING, DISABLED, DELETED } state = ENABLED;
+        std::vector<std::shared_ptr<Node>> edges = {};
+        Auction auction = 0;
     };
 
     using NodePtr = std::shared_ptr<Node>;
@@ -40,6 +34,14 @@ public:
 
     bool insertNode(NodePtr node);
     bool removeNode(NodePtr node);
+
+    // position based insert and remove
+    template <class... Args>
+    bool insertNode(Point2D position, Args&&... args) {
+        return insertNode(NodePtr(new Node{position, std::forward<Args>(args)...}));
+    }
+    bool removeNode(Point2D position) { return removeNode(findNode(position)); }
+
     // mark all nodes as deleted when cleared but not when detached
     void clearNodes();
     RTree detachNodes();
