@@ -20,8 +20,9 @@ PathSearch::Error PathSearch::Config::validate() const {
 
 PathSearch::Error PathSearch::setDestination(Graph::Nodes nodes) {
     // only reset cost estimates when new destinations are added
-    _cost_nonce += std::any_of(
-            nodes.begin(), nodes.end(), [this](const Graph::NodePtr& node) { return !_dst_nodes.containsNode(node); });
+    _cost_nonce += nodes.empty() || std::any_of(nodes.begin(), nodes.end(), [this](const Graph::NodePtr& node) {
+        return !_dst_nodes.containsNode(node);
+    });
     // reset destination nodes
     _dst_nodes.detachNodes();
     for (auto& node : nodes) {
