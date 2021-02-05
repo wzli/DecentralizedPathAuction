@@ -40,9 +40,8 @@ void Graph::clearNodes() {
 }
 
 Graph::RTree Graph::detachNodes() {
-    RTree detached;
-    _nodes.swap(detached);
-    // use named return value optimization instead of move
+    RTree detached = std::move(_nodes);
+    _nodes.clear();
     return detached;
 }
 

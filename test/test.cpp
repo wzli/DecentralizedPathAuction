@@ -5,7 +5,8 @@
 
 using namespace decentralized_path_auction;
 
-void make_pathway(Graph& graph, Graph::Nodes& pathway, Point2D a, Point2D b, size_t n) {
+void make_pathway(Graph& graph, Graph::Nodes& pathway, Point2D a, Point2D b, size_t n,
+        Graph::Node::State state = Graph::Node::ENABLED) {
     ASSERT_GT(n, 1);
     auto pos = a;
     auto inc = b;
@@ -13,7 +14,7 @@ void make_pathway(Graph& graph, Graph::Nodes& pathway, Point2D a, Point2D b, siz
     bg::divide_value(inc, n - 1);
     pathway.clear();
     for (size_t i = 0; i < n; ++i, bg::add_point(pos, inc)) {
-        auto node = std::make_shared<Graph::Node>(pos);
+        auto node = std::make_shared<Graph::Node>(pos, state);
         ASSERT_TRUE(graph.insertNode(node));
         if (i > 0) {
             node->edges.push_back(pathway.back());
@@ -36,17 +37,32 @@ void print_graph(const Graph& graph) {
     printf("%lu nodes total\r\n", graph.getNodes().size());
 }
 
-TEST(graph, destruct) {
+TEST(graph, clear_or_destruct) {
     Graph::Nodes nodes;
     {
         Graph graph;
         make_pathway(graph, nodes, {0, 0}, {1, 10}, 11);
     }
-    ASSERT_FALSE(nodes.empty());
+    EXPECT_FALSE(nodes.empty());
     for (auto& node : nodes) {
         EXPECT_TRUE(node->edges.empty());
         EXPECT_EQ(node->state, Graph::Node::DELETED);
         EXPECT_EQ(node.use_count(), 1);
+    }
+}
+
+TEST(graph, detach) {
+    Graph graph;
+    Graph::Nodes nodes;
+    make_pathway(graph, nodes, {0, 0}, {1, 10}, 11);
+    EXPECT_FALSE(nodes.empty());
+    EXPECT_EQ(nodes.size(), graph.getNodes().size());
+    EXPECT_EQ(nodes.size(), graph.detachNodes().size());
+    EXPECT_TRUE(graph.getNodes().empty());
+    for (auto& node : nodes) {
+        EXPECT_FALSE(node->edges.empty());
+        EXPECT_NE(node->state, Graph::Node::DELETED);
+        EXPECT_NE(node.use_count(), 1);
     }
 }
 
@@ -55,8 +71,8 @@ TEST(graph, move_assign) {
     Graph graph1, graph2;
     make_pathway(graph1, nodes1, {0, 0}, {1, 10}, 11);
     make_pathway(graph2, nodes2, {0, 0}, {1, 10}, 11);
-    ASSERT_FALSE(nodes1.empty());
-    ASSERT_FALSE(nodes2.empty());
+    EXPECT_FALSE(nodes1.empty());
+    EXPECT_FALSE(nodes2.empty());
     graph1 = std::move(graph2);
     for (auto& node : nodes1) {
         EXPECT_TRUE(node->edges.empty());
@@ -106,30 +122,32 @@ TEST(graph, remove) {
     ASSERT_TRUE(graph.getNodes().empty());
 }
 
-TEST(graph, insert_nearest_remove) {
+TEST(graph, find) {
     Graph graph;
-    // test insert
     Graph::Nodes pathway;
-    make_pathway(graph, pathway, {0, 0}, {1, 10}, 11);
-    // test duplicate position rejection
-    auto duplicate_node = std::make_shared<Graph::Node>(Point2D{0, 0});
-    ASSERT_FALSE(graph.insertNode(duplicate_node));
-    ASSERT_EQ(pathway.size(), 11);
-    ASSERT_EQ(pathway.size(), graph.getNodes().size());
-    // test nearest queries
-    ASSERT_EQ(pathway.back(), graph.findNearestNode({100, 13}, Graph::Node::ENABLED));
-    ASSERT_EQ(pathway.front(), graph.findNearestNode({-100, -13}, Graph::Node::ENABLED));
-    ASSERT_EQ(pathway[5], graph.findNearestNode({0.51, 5.1}, Graph::Node::ENABLED));
-    // test remove and contains
-    ASSERT_TRUE(graph.containsNode(pathway[5]));
-    graph.removeNode(pathway[5]);
-    ASSERT_FALSE(graph.containsNode(pathway[5]));
-    ASSERT_EQ(graph.getNodes().size(), 10);
-    ASSERT_EQ(pathway[5]->state, Graph::Node::DELETED);
-    ASSERT_EQ(pathway[6], graph.findNearestNode({0.51, 5.1}, Graph::Node::ENABLED));
+    make_pathway(graph, pathway, {0, 0}, {1, 10}, 11, Graph::Node::NO_PARKING);
     // test find
-    ASSERT_TRUE(graph.findNode({0, 0}));
-    ASSERT_FALSE(graph.findNode({-1, -1}));
+    EXPECT_TRUE(graph.findNode({0, 0}));
+    EXPECT_FALSE(graph.findNode({-1, -1}));
+    // test find nearest
+    EXPECT_EQ(nullptr, graph.findNearestNode({100, 13}, Graph::Node::ENABLED));
+    EXPECT_EQ(pathway.back(), graph.findNearestNode({100, 13}, Graph::Node::NO_PARKING));
+    EXPECT_EQ(pathway.front(), graph.findNearestNode({-100, -13}, Graph::Node::NO_PARKING));
+    EXPECT_EQ(pathway[5], graph.findNearestNode({0.51, 5.1}, Graph::Node::NO_PARKING));
+    // test contains
+    EXPECT_TRUE(graph.containsNode(pathway[5]));
+    EXPECT_TRUE(graph.removeNode(pathway[5]));
+    EXPECT_FALSE(graph.containsNode(pathway[5]));
+    // test validate
+    EXPECT_TRUE(Graph::validateNode(pathway[4]));
+    EXPECT_FALSE(Graph::validateNode(pathway[5]));
+    EXPECT_FALSE(Graph::validateNode(nullptr));
+    // test find any
+    EXPECT_TRUE(graph.findAnyNode(Graph::Node::NO_PARKING));
+    EXPECT_FALSE(graph.findAnyNode(Graph::Node::ENABLED));
+    graph.clearNodes();
+    EXPECT_FALSE(graph.findAnyNode(Graph::Node::NO_PARKING));
+
     // print_graph(graph);
 }
 
