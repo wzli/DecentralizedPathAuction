@@ -22,12 +22,6 @@ static PathSync::Error removeBids(const std::string& agent_id, Path::const_itera
     return error ? PathSync::VISIT_BID_ALREADY_REMOVED : PathSync::SUCCESS;
 }
 
-PathSync::~PathSync() {
-    for (auto& [agent_id, info] : _paths) {
-        removeBids(agent_id, info.path.begin() + info.progress, info.path.end());
-    }
-}
-
 PathSync::Error PathSync::updatePath(
         const std::string& agent_id, const Path& path, size_t path_id, float stop_duration) {
     // input checks
@@ -64,16 +58,6 @@ PathSync::Error PathSync::updatePath(
     return error;
 }
 
-PathSync::Error PathSync::removePath(const std::string& agent_id) {
-    auto found = _paths.find(agent_id);
-    if (found == _paths.end()) {
-        return AGENT_ID_NOT_FOUND;
-    }
-    auto error = removeBids(agent_id, found->second.path.begin() + found->second.progress, found->second.path.end());
-    _paths.erase(found);
-    return error;
-}
-
 PathSync::Error PathSync::updateProgress(const std::string& agent_id, size_t progress, size_t path_id) {
     auto found = _paths.find(agent_id);
     if (found == _paths.end()) {
@@ -93,6 +77,25 @@ PathSync::Error PathSync::updateProgress(const std::string& agent_id, size_t pro
     auto error = removeBids(agent_id, info.path.begin() + info.progress, info.path.begin() + progress);
     info.progress = progress;
     return error;
+}
+
+PathSync::Error PathSync::removePath(const std::string& agent_id) {
+    auto found = _paths.find(agent_id);
+    if (found == _paths.end()) {
+        return AGENT_ID_NOT_FOUND;
+    }
+    auto error = removeBids(agent_id, found->second.path.begin() + found->second.progress, found->second.path.end());
+    _paths.erase(found);
+    return error;
+}
+
+PathSync::Error PathSync::clearPaths() {
+    bool error = false;
+    for (auto& [agent_id, info] : _paths) {
+        error |= removeBids(agent_id, info.path.begin() + info.progress, info.path.end());
+    }
+    _paths.clear();
+    return error ? PathSync::VISIT_BID_ALREADY_REMOVED : PathSync::SUCCESS;
 }
 
 PathSync::Error PathSync::getEntitledSegment(const std::string& agent_id, Path& segment) const {

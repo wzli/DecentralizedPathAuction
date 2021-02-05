@@ -34,16 +34,14 @@ public:
     using RTreeNode = std::pair<Point2D, NodePtr>;
     using RTree = bg::index::rtree<RTreeNode, bg::index::rstar<16>>;
 
-    // non-copyable (to force ownership of nodes to a single graph instance)
-    Graph(const Graph&) = delete;
-    Graph& operator=(const Graph&) = delete;
-    Graph(Graph&&) = default;
+    // non-copyable but movable (to force ownership of nodes to a single graph instance)
+    ~Graph() { clearNodes(); }
     Graph& operator=(Graph&&) = default;
-    // mark all nodes as deleted on destruction
-    ~Graph();
 
     bool insertNode(NodePtr node);
     bool removeNode(NodePtr node);
+    // mark all nodes as deleted when cleared but not when detached
+    void clearNodes();
     RTree detachNodes();
 
     template <class Predicate>

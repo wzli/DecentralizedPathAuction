@@ -33,13 +33,17 @@ public:
 
     using Paths = std::unordered_map<std::string, PathInfo>;
 
-    // remove all bids on destruction
-    ~PathSync();
+    // non-copyable but movable
+    ~PathSync() { clearPaths(); }
+    PathSync& operator=(PathSync&&) = default;
 
     Error updatePath(const std::string& agent_id, const Path& path, size_t path_id,
             float stop_duration = std::numeric_limits<float>::max());
-    Error removePath(const std::string& agent_id);
     Error updateProgress(const std::string& agent_id, size_t progress, size_t path_id);
+
+    // remove all bids from auction when path is removed
+    Error removePath(const std::string& agent_id);
+    Error clearPaths();
 
     Error getEntitledSegment(const std::string& agent_id, Path& segment) const;
     const Paths& getPaths() const { return _paths; }

@@ -10,18 +10,14 @@ public:
     enum Error {
         SUCCESS = 0,
         ITERATIONS_REACHED,
-
         PATH_EXTENDED,
         PATH_CONTRACTED,
-
         DESTINATION_NODE_INVALID,
         DESTINATION_NODE_NO_PARKING,
         DESTINATION_NODE_DUPLICATED,
-
         SOURCE_NODE_NOT_PROVIDED,
         SOURCE_NODE_INVALID,
         SOURCE_NODE_DISABLED,
-
         CONFIG_AGENT_ID_EMPTY,
         CONFIG_TIME_EXCHANGE_RATE_NON_POSITIVE,
         CONFIG_TRAVEL_TIME_MISSING,
@@ -46,7 +42,7 @@ public:
             : _config(std::move(config)) {}
 
     Error setDestination(Graph::Nodes nodes);
-    Error iterateSearch(Path& path, size_t iterations);
+    Error iterateSearch(Path& path, size_t iterations) const;
 
     Config& editConfig() { return _config; }
 

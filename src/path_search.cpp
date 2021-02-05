@@ -39,7 +39,7 @@ PathSearch::Error PathSearch::setDestination(Graph::Nodes nodes) {
     return SUCCESS;
 }
 
-PathSearch::Error PathSearch::iterateSearch(Path& path, size_t iterations) {
+PathSearch::Error PathSearch::iterateSearch(Path& path, size_t iterations) const {
     // check configs
     if (Error config_error = _config.validate()) {
         return config_error;

@@ -2,14 +2,6 @@
 
 namespace decentralized_path_auction {
 
-Graph::~Graph() {
-    for (auto& rt_node : _nodes) {
-        // clear edges to break shared_ptr cyclic references
-        rt_node.second->edges.clear();
-        rt_node.second->state = Node::DELETED;
-    }
-}
-
 bool Graph::insertNode(Graph::NodePtr node) {
     if (!validateNode(node)) {
         return false;
@@ -36,6 +28,15 @@ bool Graph::removeNode(Graph::NodePtr node) {
     RTreeNode rt_node{node->position, nullptr};
     rt_node.second = std::move(node);
     return _nodes.remove(rt_node);
+}
+
+void Graph::clearNodes() {
+    for (auto& rt_node : _nodes) {
+        // clear edges to break shared_ptr cyclic references
+        rt_node.second->edges.clear();
+        rt_node.second->state = Node::DELETED;
+    }
+    _nodes.clear();
 }
 
 Graph::RTree Graph::detachNodes() {
