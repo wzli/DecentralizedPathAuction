@@ -42,7 +42,7 @@ public:
             : _config(std::move(config)) {}
 
     Error setDestination(Graph::Nodes nodes);
-    Error iterateSearch(Path& path, size_t iterations) const;
+    Error iterateSearch(Path& path, size_t iterations = 0) const;
 
     Config& editConfig() { return _config; }
 

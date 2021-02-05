@@ -37,7 +37,7 @@ public:
 
     using Bids = std::map<float, Bid>;
 
-    Auction(float start_price)
+    Auction(float start_price = 0)
             : _bids({{start_price, {""}}}) {}
     ~Auction();
 

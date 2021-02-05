@@ -20,7 +20,7 @@ public:
         const Point2D position;
         enum State { ENABLED, NO_PARKING, NO_STOPPING, DISABLED, DELETED } state = ENABLED;
         std::vector<std::shared_ptr<Node>> edges = {};
-        Auction auction = 0;
+        Auction auction = {};
     };
 
     using NodePtr = std::shared_ptr<Node>;
