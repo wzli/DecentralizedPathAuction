@@ -164,6 +164,73 @@ TEST(graph, validate_node) {
     EXPECT_FALSE(Graph::validateNode(nullptr));
 }
 
+TEST(auction, constructor) {
+    Auction auction(10);
+    EXPECT_EQ(auction.getStartPrice(), 10);
+    EXPECT_EQ(auction.getBids().size(), 1);
+    auto& [start_price, start_bid] = *auction.getBids().begin();
+    EXPECT_EQ(start_price, 10);
+    EXPECT_EQ(start_bid.bidder, "");
+    EXPECT_EQ(start_bid.prev, nullptr);
+    EXPECT_EQ(start_bid.next, nullptr);
+    EXPECT_EQ(start_bid.higher, nullptr);
+}
+
+TEST(auction, destructor) {}
+
+TEST(auction, insert_bid) {
+    float start_price = 10;
+    Auction auction(start_price);
+    auto& bids = auction.getBids();
+    Auction::Bid* prev = nullptr;
+    // trivial input checks
+    EXPECT_EQ(auction.insertBid("", 0, 0, prev), Auction::BIDDER_EMPTY);
+    EXPECT_EQ(auction.insertBid("A", start_price, 0, prev), Auction::PRICE_BELOW_START);
+    EXPECT_EQ(auction.insertBid("A", start_price - 1, 0, prev), Auction::PRICE_BELOW_START);
+    EXPECT_EQ(auction.insertBid("A", start_price + 1, -1, prev), Auction::DURATION_NEGATIVE);
+    // add first bid
+    EXPECT_EQ(auction.insertBid("A", start_price + 1, 0, prev), Auction::SUCCESS);
+    EXPECT_EQ(bids.begin()->second.higher, prev);
+    EXPECT_EQ(prev->prev, nullptr);
+    EXPECT_EQ(prev->next, nullptr);
+    EXPECT_EQ(prev->higher, nullptr);
+    // more rejection checks
+    EXPECT_EQ(auction.insertBid("A", start_price + 1, 0, prev), Auction::PRICE_ALREADY_EXIST);
+    EXPECT_EQ(auction.insertBid("B", start_price + 2, 0, prev), Auction::BIDDER_MISMATCH);
+    // add chained bid
+    for (int i = 2; i < 10; ++i) {
+        EXPECT_EQ(auction.insertBid("A", start_price + i, 0, prev), Auction::SUCCESS);
+    }
+    EXPECT_EQ(prev->higher, nullptr);
+    EXPECT_EQ(prev->next, nullptr);
+    prev = prev->prev;
+    EXPECT_EQ(auction.insertBid("A", start_price + 8.5f, 0, prev), Auction::SUCCESS);
+    int i = 0;
+    for (auto bid = bids.begin()->second.higher; bid; bid = bid->next) {
+        if (bid->prev) {
+            EXPECT_EQ(bid->prev->next, bid);
+        }
+        if (bid->next) {
+            EXPECT_EQ(bid->next->prev, bid);
+        }
+        if (bid->higher) {
+            EXPECT_EQ(bid->higher->prev, bid);
+        }
+        ++i;
+    }
+    EXPECT_EQ(i, bids.size() - 1);
+}
+
+TEST(auction, remove_bid) {}
+
+TEST(auction, get_higher_bid) {}
+
+TEST(auction, get_highest_bid) {}
+
+TEST(auction, detect_cycle) {}
+
+TEST(auction, total_duration) {}
+
 #if 0
 TEST(auction, insert_remove_bids) {
     Auction auction(10);
@@ -254,7 +321,7 @@ TEST(auction, collision_checks) {
 // test passive path
 // test evading into aile
 // test cyclic dependencies check
-// test back and forth dependencies
+// test back and forth path wait dependencies
 // test if destructors of graph, auction, path search work as intended
 
 int main(int argc, char* argv[]) {
