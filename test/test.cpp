@@ -211,7 +211,31 @@ void check_auction_links(const Auction::Bids& bids) {
     EXPECT_EQ(i, bids.size() - 1);
 }
 
-TEST(auction, destructor) {}
+TEST(auction, destructor) {
+    Auction a1(0);
+    {
+        Auction a3(0);
+        {
+            Auction a2(0);
+            for (int i = 1; i <= 5; ++i) {
+                Auction::Bid* prev = nullptr;
+                EXPECT_EQ(a1.insertBid("A", i, 0, prev), Auction::SUCCESS);
+                EXPECT_EQ(a2.insertBid("A", i, 0, prev), Auction::SUCCESS);
+                EXPECT_EQ(a3.insertBid("A", i, 0, prev), Auction::SUCCESS);
+            }
+        }
+        for (auto bid = std::next(a1.getBids().begin()); bid != a1.getBids().end(); ++bid) {
+            EXPECT_EQ(bid->second.prev, nullptr);
+            EXPECT_EQ(bid->second.next->next, nullptr);
+            EXPECT_EQ(bid->second.next->prev, &bid->second);
+        }
+    }
+    for (auto bid = std::next(a1.getBids().begin()); bid != a1.getBids().end(); ++bid) {
+        EXPECT_EQ(bid->second.prev, nullptr);
+        EXPECT_EQ(bid->second.next, nullptr);
+    }
+    EXPECT_EQ(a1.getBids().size(), 6);
+}
 
 TEST(auction, insert_bid) {
     Auction auction(0);
@@ -307,69 +331,6 @@ TEST(auction, detect_cycle) {}
 TEST(auction, total_duration) {}
 
 #if 0
-TEST(auction, insert_remove_bids) {
-    Auction auction(10);
-    EXPECT_EQ(auction.getStartPrice(), 10);
-    EXPECT_EQ(auction.getBids().size(), 1);
-    EXPECT_EQ(auction.getBids().begin()->second.higher, nullptr);
-    // reject empty bidder
-    Auction::Bid* prev = nullptr;
-    EXPECT_FALSE(auction.insertBid({"", 11}, prev));
-    EXPECT_FALSE(prev);
-    EXPECT_EQ(auction.getBids().size(), 1);
-    // reject less than start price
-    EXPECT_FALSE(auction.insertBid({"A", 5}, prev));
-    // valid insert
-    EXPECT_TRUE(auction.insertBid({"A", 11}, prev));
-    EXPECT_EQ(auction.getHighestBid().price, 11);
-    EXPECT_EQ(auction.getHighestBid("A").price, 10);
-    EXPECT_EQ(auction.getBids().begin()->second.higher, &auction.getHighestBid());
-    EXPECT_EQ(auction.getHighestBid().higher, nullptr);
-    auto first = prev;
-    EXPECT_EQ(auction.getBids().size(), 2);
-    EXPECT_TRUE(prev);
-    EXPECT_EQ(prev->bidder, "A");
-    EXPECT_FALSE(prev->prev);
-    EXPECT_FALSE(prev->next);
-    // reject double insert
-    EXPECT_FALSE(auction.insertBid({"A", 11}, prev));
-    // reject bidder mismatch
-    EXPECT_FALSE(auction.insertBid({"B", 12}, prev));
-    // insert linked bids
-    EXPECT_TRUE(auction.insertBid({"A", 12}, prev));
-    EXPECT_TRUE(auction.insertBid({"A", 13}, prev));
-    EXPECT_TRUE(auction.insertBid({"A", 14}, prev));
-    EXPECT_EQ(auction.getHighestBid().price, 14);
-    auto last = prev;
-    // test links
-    for (int i = 14; prev; prev = prev->prev, --i) {
-        EXPECT_EQ(prev->price, i);
-    }
-    prev = first;
-    for (int i = 11; prev; prev = prev->next, ++i) {
-        EXPECT_EQ(prev->price, i);
-    }
-    EXPECT_EQ(auction.getBids().size(), 5);
-    // reject false remove
-    EXPECT_FALSE(auction.removeBid({"B", 1, 11}));
-    // valid remove
-    EXPECT_TRUE(auction.removeBid({"A", 12}));
-    EXPECT_EQ(auction.getBids().size(), 4);
-    EXPECT_EQ(first->price, 11);
-    EXPECT_EQ(first->next->price, 13);
-    EXPECT_TRUE(auction.removeBid({"A", 11}));
-    prev = last;
-    for (int i = 14; prev; prev = prev->prev, --i) {
-        EXPECT_EQ(prev->price, i);
-    }
-    EXPECT_EQ(auction.getBids().size(), 3);
-    // test higher links
-    for (auto bid = auction.getBids().begin(); bid != auction.getBids().end(); ++bid) {
-        auto higher = std::next(bid) == auction.getBids().end() ? nullptr : &std::next(bid)->second;
-        EXPECT_EQ(bid->second.higher, higher);
-    }
-}
-
 TEST(auction, collision_checks) {
     Graph graph;
     Graph::Nodes pathway;
