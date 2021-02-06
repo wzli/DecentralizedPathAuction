@@ -76,16 +76,15 @@ Auction::Error Auction::removeBid(const std::string& bidder, float price) {
     if (bid.prev) {
         bid.prev->next = bid.next;
     }
-    if (found != _bids.begin()) {
-        std::prev(found)->second.higher = bid.higher;
-    }
+    // there is always a previous since found cannot be start bid
+    std::prev(found)->second.higher = bid.higher;
     _bids.erase(found);
     return SUCCESS;
 }
 
 Auction::Bids::const_iterator Auction::getHigherBid(float price, const std::string& exclude_bidder) const {
     auto bid = _bids.upper_bound(price);
-    while (bid != _bids.end() && bid->second.bidder == exclude_bidder) {
+    while (!exclude_bidder.empty() && bid != _bids.end() && bid->second.bidder == exclude_bidder) {
         ++bid;
     }
     return bid;
@@ -93,7 +92,7 @@ Auction::Bids::const_iterator Auction::getHigherBid(float price, const std::stri
 
 Auction::Bids::const_iterator Auction::getHighestBid(const std::string& exclude_bidder) const {
     auto bid = std::prev(_bids.end());
-    while (bid != _bids.begin() && bid->second.bidder == exclude_bidder) {
+    while (!exclude_bidder.empty() && bid != _bids.begin() && bid->second.bidder == exclude_bidder) {
         --bid;
     }
     return bid;

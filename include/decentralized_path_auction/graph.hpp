@@ -42,8 +42,9 @@ public:
     }
     bool removeNode(Point2D position) { return removeNode(findNode(position)); }
 
-    // mark all nodes as deleted when cleared but not when detached
+    // nodes are deleted when cleared but not when detached
     void clearNodes();
+    // WARNING: must manually clear edge links from detached nodes to prevent cyclic shared_ptr memory leak
     RTree detachNodes();
 
     template <class Predicate>
