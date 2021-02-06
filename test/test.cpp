@@ -328,7 +328,31 @@ TEST(auction, get_highest_bid) {
 
 TEST(auction, detect_cycle) {}
 
-TEST(auction, total_duration) {}
+TEST(auction, total_duration) {
+    Auction auction(0);
+    Auction::Bid* prev = nullptr;
+    for (size_t i = 1; i <= 10; ++i) {
+        EXPECT_EQ(auction.insertBid("A", i, 1, prev), Auction::SUCCESS);
+    }
+    for (size_t i = 0; i < auction.getBids().size(); ++i) {
+        EXPECT_EQ(std::next(auction.getBids().begin(), i)->second.totalDuration(), i);
+    }
+    // remove middle
+    EXPECT_EQ(auction.removeBid("A", 5), Auction::SUCCESS);
+    for (size_t i = 0; i < auction.getBids().size(); ++i) {
+        EXPECT_EQ(std::next(auction.getBids().begin(), i)->second.totalDuration(), i);
+    }
+    // remove start
+    EXPECT_EQ(auction.removeBid("A", 1), Auction::SUCCESS);
+    for (size_t i = 0; i < auction.getBids().size(); ++i) {
+        EXPECT_EQ(std::next(auction.getBids().begin(), i)->second.totalDuration(), i);
+    }
+    // remove end
+    EXPECT_EQ(auction.removeBid("A", 10), Auction::SUCCESS);
+    for (size_t i = 0; i < auction.getBids().size(); ++i) {
+        EXPECT_EQ(std::next(auction.getBids().begin(), i)->second.totalDuration(), i);
+    }
+}
 
 #if 0
 TEST(auction, collision_checks) {
