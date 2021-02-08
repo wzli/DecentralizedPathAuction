@@ -55,8 +55,8 @@ private:
 
     Config _config;
     Graph _dst_nodes;
-    mutable size_t _cycle_nonce = 0;
     size_t _cost_nonce = 0;
+    mutable size_t _cycle_nonce = 0;
 };
 
 }  // namespace decentralized_path_auction

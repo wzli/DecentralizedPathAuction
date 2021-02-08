@@ -101,14 +101,17 @@ Auction::Bids::const_iterator Auction::getHighestBid(const std::string& exclude_
 bool Auction::Bid::detectCycle(size_t nonce, const std::string& exclude_bidder) const {
     // cycle occured if previously visited bid was visited again
     if (cycle_nonce == nonce) {
-        return true;
+        return cycle_flag;
     }
     // mark traversed bids as visited
     cycle_nonce = nonce;
-    // detect cycle for next bids in time (first by auction, then by path)
-    return (higher && higher->detectCycle(nonce, exclude_bidder)) ||
-           // skip the current bid's path if the bidder is excluded
-           (bidder != exclude_bidder && next && next->detectCycle(nonce, exclude_bidder));
+    cycle_flag = true;
+    // detect cycle for prev bids in time (first by auction, then by path)
+    bool cycle_detected = (higher && higher->detectCycle(nonce, exclude_bidder)) ||
+                          // skip the current bid's path if the bidder is excluded
+                          (bidder != exclude_bidder && prev && prev->detectCycle(nonce, exclude_bidder));
+    cycle_flag = false;
+    return cycle_detected;
 }
 
 }  // namespace decentralized_path_auction

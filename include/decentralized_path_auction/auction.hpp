@@ -26,9 +26,10 @@ public:
         Bid* next = nullptr;
         Bid* higher = nullptr;
         // search cache
-        mutable size_t cycle_nonce = 0;
         mutable size_t cost_nonce = 0;
+        mutable size_t cycle_nonce = 0;
         mutable float cost_estimate = 0;
+        mutable bool cycle_flag = false;
 
         // recursive functions
         bool detectCycle(size_t nonce, const std::string& exclude_bidder = "") const;
