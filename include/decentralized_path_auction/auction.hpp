@@ -24,7 +24,7 @@ public:
         // links to other bids
         Bid* prev = nullptr;
         Bid* next = nullptr;
-        Bid* higher = nullptr;
+        Bid* lower = nullptr;
         // search cache
         mutable size_t cost_nonce = 0;
         mutable size_t cycle_nonce = 0;

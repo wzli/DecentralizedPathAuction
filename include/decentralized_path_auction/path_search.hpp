@@ -50,7 +50,6 @@ private:
     float findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Path& path) const;
     bool appendMinCostVisit(size_t visit_index, Path& path) const;
     bool checkTermination(const Visit& visit) const;
-    bool detectCycle(const Auction::Bid& bid, const Path& path) const;
     float getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid) const;
 
     Config _config;

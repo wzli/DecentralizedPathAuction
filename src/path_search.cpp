@@ -100,6 +100,16 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
     auto& prev_node = &visit == &path.front() ? nullptr : (&visit - 1)->node;
     float min_cost = std::numeric_limits<float>::max();
     min_cost_visit = {nullptr};
+    // reset cycle detection
+    ++_cycle_nonce;
+    for (auto& prev_visit : path) {
+        auto& bid = prev_visit.node->auction.getBids().find(visit.min_price)->second;
+        bid.cycle_nonce = _cycle_nonce;
+        bid.cycle_flag = true;
+        if (&prev_visit == &visit) {
+            break;
+        }
+    }
     // loop over each adjacent node
     for (auto& adj_node : visit.node->edges) {
         // skip disabled nodes
@@ -127,7 +137,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
                 continue;
             }
             // skip the bid if it causes cyclic dependencies
-            if (detectCycle(bid, path)) {
+            if (bid.detectCycle(_cycle_nonce, _config.agent_id)) {
                 continue;
             }
             // arrival_time factors in how long you have to wait
@@ -195,20 +205,6 @@ bool PathSearch::checkTermination(const Visit& visit) const {
                    visit.node->auction.getHighestBid(_config.agent_id)->second.bidder.empty()) ||
            // termination condition for regular destinations
            _dst_nodes.containsNode(visit.node);
-}
-
-bool PathSearch::detectCycle(const Auction::Bid& bid, const Path& path) const {
-    ++_cycle_nonce;
-    // set all previous visits in path as visited
-    for (auto& visit : path) {
-        assert(Graph::validateNode(visit.node));
-        auto& visit_bid = visit.node->auction.getBids().find(visit.min_price)->second;
-        visit_bid.cycle_nonce = _cycle_nonce;
-        if (&visit_bid == &bid) {
-            break;
-        }
-    }
-    return bid.detectCycle(_cycle_nonce, _config.agent_id);
 }
 
 float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid) const {

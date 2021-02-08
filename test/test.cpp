@@ -179,15 +179,14 @@ TEST(auction, constructor) {
     EXPECT_EQ(start_bid.bidder, "");
     EXPECT_EQ(start_bid.prev, nullptr);
     EXPECT_EQ(start_bid.next, nullptr);
-    EXPECT_EQ(start_bid.higher, nullptr);
+    EXPECT_EQ(start_bid.lower, nullptr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 void check_auction_links(const Auction::Bids& bids) {
-    EXPECT_EQ(bids.rbegin()->second.higher, nullptr);
     EXPECT_EQ(bids.rbegin()->second.next, nullptr);
-    EXPECT_EQ(bids.begin()->second.higher, &std::next(bids.begin())->second);
+    EXPECT_EQ(bids.begin()->second.lower, nullptr);
     EXPECT_EQ(bids.begin()->second.next, nullptr);
     EXPECT_EQ(bids.begin()->second.prev, nullptr);
     int i = 0;
@@ -202,11 +201,8 @@ void check_auction_links(const Auction::Bids& bids) {
         } else {
             EXPECT_EQ(bid, &bids.rbegin()->second);
         }
-        if (bid->higher) {
-            EXPECT_EQ(bid->higher->prev, bid);
-        } else {
-            EXPECT_EQ(bid, &bids.rbegin()->second);
-        }
+        ASSERT_TRUE(bid->lower);
+        EXPECT_EQ(bid->lower->next, bid->lower == &bids.begin()->second ? nullptr : bid);
     }
     EXPECT_EQ(i, bids.size() - 1);
 }
@@ -248,10 +244,10 @@ TEST(auction, insert_bid) {
     EXPECT_EQ(auction.insertBid("A", 1, -1, prev), Auction::DURATION_NEGATIVE);
     // add first bid
     EXPECT_EQ(auction.insertBid("A", 1, 0, prev), Auction::SUCCESS);
-    EXPECT_EQ(bids.begin()->second.higher, prev);
+    EXPECT_EQ(bids.begin()->second.lower, nullptr);
     EXPECT_EQ(prev->prev, nullptr);
     EXPECT_EQ(prev->next, nullptr);
-    EXPECT_EQ(prev->higher, nullptr);
+    EXPECT_EQ(prev->lower, &bids.begin()->second);
     // more rejection checks
     EXPECT_EQ(auction.insertBid("A", 1, 0, prev), Auction::PRICE_ALREADY_EXIST);
     EXPECT_EQ(auction.insertBid("B", 2, 0, prev), Auction::BIDDER_MISMATCH);
@@ -259,7 +255,6 @@ TEST(auction, insert_bid) {
     for (int i = 2; i < 10; ++i) {
         EXPECT_EQ(auction.insertBid("A", i, 0, prev), Auction::SUCCESS);
     }
-    EXPECT_EQ(prev->higher, nullptr);
     EXPECT_EQ(prev->next, nullptr);
     prev = prev->prev;
     EXPECT_EQ(auction.insertBid("A", 8.5f, 0, prev), Auction::SUCCESS);
@@ -333,21 +328,22 @@ TEST(auction, detect_cycle) {
         Auction::Bid* prev = nullptr;
         // single bid should not have any cycles
         EXPECT_EQ(auction.insertBid("A", 1, 0, prev), Auction::SUCCESS);
-        auto& start_bid = auction.getBids().begin()->second;
-        EXPECT_FALSE(start_bid.detectCycle(++nonce));
+        EXPECT_FALSE(prev->detectCycle(++nonce));
 
         // two consecutive bids in the same auction with inversed order causes cycle
         EXPECT_EQ(auction.insertBid("A", 2, 0, prev), Auction::SUCCESS);
-        EXPECT_TRUE(start_bid.detectCycle(++nonce));
+        EXPECT_TRUE(prev->detectCycle(++nonce));
+        EXPECT_TRUE(prev->prev->detectCycle(++nonce));
 
         // remove culptrit bid
+        prev = prev->prev;
         EXPECT_EQ(auction.removeBid("A", 2), Auction::SUCCESS);
-        EXPECT_FALSE(start_bid.detectCycle(++nonce));
+        EXPECT_FALSE(prev->detectCycle(++nonce));
 
         // two consecutive bids in the same auction without order inversion
-        prev = start_bid.higher;
         EXPECT_EQ(auction.insertBid("A", 0.5f, 0, prev), Auction::SUCCESS);
-        EXPECT_FALSE(start_bid.detectCycle(++nonce));
+        EXPECT_FALSE(prev->detectCycle(++nonce));
+        EXPECT_FALSE(prev->prev->detectCycle(++nonce));
     }
     {
         // auc1  auc2
@@ -366,6 +362,8 @@ TEST(auction, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_FALSE(prev_a->detectCycle(++nonce));
         EXPECT_FALSE(prev_b->detectCycle(++nonce));
+        EXPECT_FALSE(prev_a->prev->detectCycle(++nonce));
+        EXPECT_FALSE(prev_b->prev->detectCycle(++nonce));
     }
     {
         // auc1  auc2
@@ -384,6 +382,8 @@ TEST(auction, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_FALSE(prev_a->detectCycle(++nonce));
         EXPECT_FALSE(prev_b->detectCycle(++nonce));
+        EXPECT_FALSE(prev_a->prev->detectCycle(++nonce));
+        EXPECT_FALSE(prev_b->prev->detectCycle(++nonce));
     }
     {
         // auc1  auc2
@@ -402,6 +402,8 @@ TEST(auction, detect_cycle) {
         EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_FALSE(prev_a->detectCycle(++nonce));
         EXPECT_FALSE(prev_b->detectCycle(++nonce));
+        EXPECT_FALSE(prev_a->prev->detectCycle(++nonce));
+        EXPECT_FALSE(prev_b->prev->detectCycle(++nonce));
     }
     {
         // auc1  auc2
@@ -420,6 +422,8 @@ TEST(auction, detect_cycle) {
         EXPECT_EQ(auc1.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
         EXPECT_FALSE(prev_a->detectCycle(++nonce));
         EXPECT_FALSE(prev_b->detectCycle(++nonce));
+        EXPECT_FALSE(prev_a->prev->detectCycle(++nonce));
+        EXPECT_FALSE(prev_b->prev->detectCycle(++nonce));
     }
     {
         // auc1  auc2
@@ -438,6 +442,8 @@ TEST(auction, detect_cycle) {
         EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_TRUE(prev_a->detectCycle(++nonce));
         EXPECT_TRUE(prev_b->detectCycle(++nonce));
+        EXPECT_TRUE(prev_a->prev->detectCycle(++nonce));
+        EXPECT_TRUE(prev_b->prev->detectCycle(++nonce));
     }
 }
 

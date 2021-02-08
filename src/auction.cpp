@@ -47,11 +47,10 @@ Auction::Error Auction::insertBid(const std::string& bidder, float price, float 
     prev = &it->second;
     // store link to next highest bid
     if (std::next(it) != _bids.end()) {
-        it->second.higher = &std::next(it)->second;
+        std::next(it)->second.lower = &it->second;
     }
-    if (it != _bids.begin()) {
-        std::prev(it)->second.higher = &it->second;
-    }
+    // start bid must exist
+    it->second.lower = &std::prev(it)->second;
     return SUCCESS;
 }
 
@@ -76,8 +75,9 @@ Auction::Error Auction::removeBid(const std::string& bidder, float price) {
     if (bid.prev) {
         bid.prev->next = bid.next;
     }
-    // there is always a previous since found cannot be start bid
-    std::prev(found)->second.higher = bid.higher;
+    if (std::next(found) != _bids.end()) {
+        std::next(found)->second.lower = bid.lower;
+    }
     _bids.erase(found);
     return SUCCESS;
 }
@@ -106,12 +106,10 @@ bool Auction::Bid::detectCycle(size_t nonce, const std::string& exclude_bidder) 
     // mark traversed bids as visited
     cycle_nonce = nonce;
     cycle_flag = true;
-    // detect cycle for prev bids in time (first by auction, then by path)
-    bool cycle_detected = (higher && higher->detectCycle(nonce, exclude_bidder)) ||
-                          // skip the current bid's path if the bidder is excluded
-                          (bidder != exclude_bidder && prev && prev->detectCycle(nonce, exclude_bidder));
-    cycle_flag = false;
-    return cycle_detected;
+    // detect cycle for next bids in time (first by auction, then by path)
+    return cycle_flag = (lower && lower->detectCycle(nonce, exclude_bidder)) ||
+                        // skip the current bid's path if the bidder is excluded
+                        (bidder != exclude_bidder && next && next->detectCycle(nonce, exclude_bidder));
 }
 
 }  // namespace decentralized_path_auction
