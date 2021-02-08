@@ -107,7 +107,8 @@ bool Auction::Bid::detectCycle(size_t nonce, const std::string& exclude_bidder) 
     cycle_nonce = nonce;
     cycle_flag = true;
     // detect cycle for next bids in time (first by auction, then by path)
-    return cycle_flag = (lower && lower->detectCycle(nonce, exclude_bidder)) ||
+    return cycle_flag = (prev && prev->lower && prev->lower->detectCycle(nonce, exclude_bidder)) ||
+                        (lower && lower->detectCycle(nonce, exclude_bidder)) ||
                         // skip the current bid's path if the bidder is excluded
                         (bidder != exclude_bidder && next && next->detectCycle(nonce, exclude_bidder));
 }

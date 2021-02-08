@@ -340,10 +340,10 @@ TEST(auction, detect_cycle) {
         EXPECT_EQ(auction.removeBid("A", 2), Auction::SUCCESS);
         EXPECT_FALSE(prev->detectCycle(++nonce));
 
-        // two consecutive bids in the same auction without order inversion
+        // two consecutive bids in the same auction without order inversion still causes cycle
         EXPECT_EQ(auction.insertBid("A", 0.5f, 0, prev), Auction::SUCCESS);
-        EXPECT_FALSE(prev->detectCycle(++nonce));
-        EXPECT_FALSE(prev->prev->detectCycle(++nonce));
+        EXPECT_TRUE(prev->detectCycle(++nonce));
+        EXPECT_TRUE(prev->prev->detectCycle(++nonce));
     }
     {
         // auc1  auc2
@@ -367,26 +367,6 @@ TEST(auction, detect_cycle) {
     }
     {
         // auc1  auc2
-        //  B1 <- B2
-        //  |     ^
-        //  v     |
-        //  A1 <- A2
-        //  no cycle
-        Auction auc1(0);
-        Auction auc2(0);
-        Auction::Bid* prev_a = nullptr;
-        Auction::Bid* prev_b = nullptr;
-        EXPECT_EQ(auc1.insertBid("A", 2, 0, prev_a), Auction::SUCCESS);
-        EXPECT_EQ(auc2.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
-        EXPECT_EQ(auc1.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
-        EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
-        EXPECT_FALSE(prev_a->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->detectCycle(++nonce));
-        EXPECT_FALSE(prev_a->prev->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->prev->detectCycle(++nonce));
-    }
-    {
-        // auc1  auc2
         //  B2 -> B1
         //  ^     ^
         //  |     |
@@ -407,11 +387,31 @@ TEST(auction, detect_cycle) {
     }
     {
         // auc1  auc2
+        //  B1 <- B2
+        //  |     ^
+        //  v     |
+        //  A1 <- A2
+        //  yes cycle
+        Auction auc1(0);
+        Auction auc2(0);
+        Auction::Bid* prev_a = nullptr;
+        Auction::Bid* prev_b = nullptr;
+        EXPECT_EQ(auc1.insertBid("A", 2, 0, prev_a), Auction::SUCCESS);
+        EXPECT_EQ(auc2.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
+        EXPECT_EQ(auc1.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
+        EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
+        EXPECT_TRUE(prev_a->detectCycle(++nonce));
+        EXPECT_TRUE(prev_b->detectCycle(++nonce));
+        EXPECT_TRUE(prev_a->prev->detectCycle(++nonce));
+        EXPECT_TRUE(prev_b->prev->detectCycle(++nonce));
+    }
+    {
+        // auc1  auc2
         //  B2 -> B1
         //  |     ^
         //  v     |
         //  A1 <- A2
-        //  no cycle
+        //  yes cycle
         Auction auc1(0);
         Auction auc2(0);
         Auction::Bid* prev_a = nullptr;
@@ -420,10 +420,10 @@ TEST(auction, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
         EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc1.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
-        EXPECT_FALSE(prev_a->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->detectCycle(++nonce));
-        EXPECT_FALSE(prev_a->prev->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->prev->detectCycle(++nonce));
+        EXPECT_TRUE(prev_a->detectCycle(++nonce));
+        EXPECT_TRUE(prev_b->detectCycle(++nonce));
+        EXPECT_TRUE(prev_a->prev->detectCycle(++nonce));
+        EXPECT_TRUE(prev_b->prev->detectCycle(++nonce));
     }
     {
         // auc1  auc2
@@ -444,6 +444,136 @@ TEST(auction, detect_cycle) {
         EXPECT_TRUE(prev_b->detectCycle(++nonce));
         EXPECT_TRUE(prev_a->prev->detectCycle(++nonce));
         EXPECT_TRUE(prev_b->prev->detectCycle(++nonce));
+    }
+    {
+        // auc1        auc2
+        //  B1 <- B2 <- B3
+        //  ^           ^
+        //  |           |
+        //  A1 <- A2 <- A3
+        // no cycle
+        Auction auc1(0);
+        Auction auc2(0);
+        Auction auca(0);
+        Auction aucb(0);
+        Auction::Bid* prev_a = nullptr;
+        Auction::Bid* prev_b = nullptr;
+        EXPECT_EQ(auc1.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
+        EXPECT_EQ(auca.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
+        EXPECT_EQ(auc2.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
+        EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
+        EXPECT_EQ(aucb.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
+        EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
+        EXPECT_FALSE(prev_a->detectCycle(++nonce));
+        EXPECT_FALSE(prev_b->detectCycle(++nonce));
+        EXPECT_FALSE(prev_a->prev->detectCycle(++nonce));
+        EXPECT_FALSE(prev_b->prev->detectCycle(++nonce));
+        EXPECT_FALSE(prev_a->prev->prev->detectCycle(++nonce));
+        EXPECT_FALSE(prev_b->prev->prev->detectCycle(++nonce));
+    }
+    {
+        // auc1        auc2
+        //  B1 <- B2 <- B3
+        //  ^           |
+        //  |           v
+        //  A1 <- A2 <- A3
+        // no cycle
+        Auction auc1(0);
+        Auction auc2(0);
+        Auction auca(0);
+        Auction aucb(0);
+        Auction::Bid* prev_a = nullptr;
+        Auction::Bid* prev_b = nullptr;
+        EXPECT_EQ(auc1.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
+        EXPECT_EQ(auca.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
+        EXPECT_EQ(auc2.insertBid("A", 2, 0, prev_a), Auction::SUCCESS);
+        EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
+        EXPECT_EQ(aucb.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
+        EXPECT_EQ(auc2.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
+        EXPECT_FALSE(prev_a->detectCycle(++nonce));
+        EXPECT_FALSE(prev_b->detectCycle(++nonce));
+        EXPECT_FALSE(prev_a->prev->detectCycle(++nonce));
+        EXPECT_FALSE(prev_b->prev->detectCycle(++nonce));
+        EXPECT_FALSE(prev_a->prev->prev->detectCycle(++nonce));
+        EXPECT_FALSE(prev_b->prev->prev->detectCycle(++nonce));
+    }
+    {
+        // auc1        auc2
+        //  B3 -> B2 -> B1
+        //  ^           ^
+        //  |           |
+        //  A1 <- A2 <- A3
+        // no cycle
+        Auction auc1(0);
+        Auction auc2(0);
+        Auction auca(0);
+        Auction aucb(0);
+        Auction::Bid* prev_a = nullptr;
+        Auction::Bid* prev_b = nullptr;
+        EXPECT_EQ(auc1.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
+        EXPECT_EQ(auca.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
+        EXPECT_EQ(auc2.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
+        EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
+        EXPECT_EQ(aucb.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
+        EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
+        EXPECT_FALSE(prev_a->detectCycle(++nonce));
+        EXPECT_FALSE(prev_b->detectCycle(++nonce));
+        EXPECT_FALSE(prev_a->prev->detectCycle(++nonce));
+        EXPECT_FALSE(prev_b->prev->detectCycle(++nonce));
+        EXPECT_FALSE(prev_a->prev->prev->detectCycle(++nonce));
+        EXPECT_FALSE(prev_b->prev->prev->detectCycle(++nonce));
+    }
+    {
+        // auc1        auc2
+        //  B3 -> B2 -> B1
+        //  |           ^
+        //  v           |
+        //  A1 <- A2 <- A3
+        // no cycle
+        Auction auc1(0);
+        Auction auc2(0);
+        Auction auca(0);
+        Auction aucb(0);
+        Auction::Bid* prev_a = nullptr;
+        Auction::Bid* prev_b = nullptr;
+        EXPECT_EQ(auc1.insertBid("A", 2, 0, prev_a), Auction::SUCCESS);
+        EXPECT_EQ(auca.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
+        EXPECT_EQ(auc2.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
+        EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
+        EXPECT_EQ(aucb.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
+        EXPECT_EQ(auc1.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
+        EXPECT_FALSE(prev_a->detectCycle(++nonce));
+        EXPECT_FALSE(prev_b->detectCycle(++nonce));
+        EXPECT_FALSE(prev_a->prev->detectCycle(++nonce));
+        EXPECT_FALSE(prev_b->prev->detectCycle(++nonce));
+        EXPECT_FALSE(prev_a->prev->prev->detectCycle(++nonce));
+        EXPECT_FALSE(prev_b->prev->prev->detectCycle(++nonce));
+    }
+    {
+        // auc1        auc2
+        //  B1 -> B2 -> B3
+        //  ^           |
+        //  |           v
+        //  A1 <- A2 <- A3
+        // yes cycle
+        Auction auc1(0);
+        Auction auc2(0);
+        Auction auca(0);
+        Auction aucb(0);
+        Auction::Bid* prev_a = nullptr;
+        Auction::Bid* prev_b = nullptr;
+        EXPECT_EQ(auc1.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
+        EXPECT_EQ(auca.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
+        EXPECT_EQ(auc2.insertBid("A", 2, 0, prev_a), Auction::SUCCESS);
+        EXPECT_EQ(auc2.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
+        EXPECT_EQ(aucb.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
+        EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
+        EXPECT_TRUE(prev_a->detectCycle(++nonce));
+        EXPECT_TRUE(prev_b->detectCycle(++nonce));
+        EXPECT_TRUE(prev_a->prev->detectCycle(++nonce));
+        EXPECT_TRUE(prev_b->prev->detectCycle(++nonce));
+        EXPECT_TRUE(prev_a->prev->prev->detectCycle(++nonce));
+        EXPECT_TRUE(prev_b->prev->prev->detectCycle(++nonce));
     }
 }
 
@@ -501,7 +631,6 @@ TEST(auction, collision_checks) {
 // test evading into aile
 // test cyclic dependencies check
 // test back and forth path wait dependencies
-// test if destructors of graph, auction, path search work as intended
 
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
