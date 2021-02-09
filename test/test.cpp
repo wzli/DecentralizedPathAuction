@@ -658,9 +658,9 @@ TEST(path_sync, update_path) {
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_PRICE_NOT_ABOVE_MIN_PRICE);
     path[5].price = 1;
 
-    path[5].min_price = -1;
+    path[5].base_price = -1;
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_MIN_PRICE_LESS_THAN_START_PRICE);
-    path[5].min_price = 0;
+    path[5].base_price = 0;
 }
 
 TEST(path_sync, update_progress) {}

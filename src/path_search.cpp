@@ -65,13 +65,13 @@ PathSearch::Error PathSearch::iterateSearch(Path& path, size_t iterations) const
     }
     // source visit is required to have the highest bid in auction to claim the source node
     path.front().price = std::numeric_limits<float>::max();
-    path.front().min_price = src_node->auction.getHighestBid(_config.agent_id)->first;
+    path.front().base_price = src_node->auction.getHighestBid(_config.agent_id)->first;
     size_t original_path_size = path.size();
     // truncate visits in path that are invalid (node got deleted/disabled or bid got removed)
     path.erase(std::find_if(path.begin() + 1, path.end(),
                        [](const Visit& visit) {
                            return !Graph::validateNode(visit.node) || visit.node->state >= Graph::Node::DISABLED ||
-                                  !visit.node->auction.getBids().count(visit.min_price) ||
+                                  !visit.node->auction.getBids().count(visit.base_price) ||
                                   visit.time < (&visit - 1)->time;
                        }),
             path.end());
@@ -104,7 +104,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
     // reset cycle detection
     ++_cycle_nonce;
     for (auto& prev_visit : path) {
-        auto& bid = prev_visit.node->auction.getBids().find(visit.min_price)->second;
+        auto& bid = prev_visit.node->auction.getBids().find(visit.base_price)->second;
         bid.cycle_nonce = _cycle_nonce;
         bid.cycle_flag = true;
         if (&prev_visit == &visit) {
@@ -153,7 +153,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
                 min_cost = cost_estimate;
                 min_cost_visit.node = std::move(adj_node);
                 min_cost_visit.time = arrival_time;
-                min_cost_visit.min_price = bid_price;
+                min_cost_visit.base_price = bid_price;
             } else {
                 // store second best cost in the price field
                 min_cost_visit.price = std::min(cost_estimate, min_cost_visit.price);
@@ -161,13 +161,13 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
         }
     }
     // decide on a bid price for the min cost visit
-    auto higher_bid = visit.node->auction.getHigherBid(min_cost_visit.min_price, _config.agent_id);
+    auto higher_bid = visit.node->auction.getHigherBid(min_cost_visit.base_price, _config.agent_id);
     if (higher_bid == visit.node->auction.getBids().end()) {
         // no upper limit, willing to pay additionally up to the surplus benefit compared to 2nd best option
-        min_cost_visit.price += min_cost_visit.min_price - min_cost;  // + 2nd best min cost (already stored)
+        min_cost_visit.price += min_cost_visit.base_price - min_cost;  // + 2nd best min cost (already stored)
     } else {
         // if upper limit is next highest bid, set price to midway between bids
-        min_cost_visit.price = 0.5f * (min_cost_visit.min_price + higher_bid->first);
+        min_cost_visit.price = 0.5f * (min_cost_visit.base_price + higher_bid->first);
     }
     return min_cost;
 }
@@ -187,13 +187,13 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) const {
     }
     // if next visit in path is not the min cost visit found
     else if (&visit == &path.back() || (&visit + 1)->node != min_cost_visit.node ||
-             (&visit + 1)->min_price != min_cost_visit.min_price) {
+             (&visit + 1)->base_price != min_cost_visit.base_price) {
         // truncate path upto current visit and append min cost visit to path
         path.resize(visit_index + 1);
         path.push_back(std::move(min_cost_visit));
     }
     // update cost estimate of current visit to the min cost of adjacent visits
-    auto& bid = visit.node->auction.getBids().find(visit.min_price)->second;
+    auto& bid = visit.node->auction.getBids().find(visit.base_price)->second;
     bool cost_increased = min_cost > bid.cost_estimate;
     bid.cost_estimate = min_cost;
     bid.cost_nonce = _cost_nonce;

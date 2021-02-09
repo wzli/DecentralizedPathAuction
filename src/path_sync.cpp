@@ -119,10 +119,10 @@ PathSync::Error PathSync::validate(const Visit& visit) const {
     if (!Graph::validateNode(visit.node)) {
         return VISIT_NODE_INVALID;
     }
-    if (visit.price <= visit.min_price) {
+    if (visit.price <= visit.base_price) {
         return VISIT_PRICE_NOT_ABOVE_MIN_PRICE;
     }
-    if (visit.min_price < visit.node->auction.getStartPrice()) {
+    if (visit.base_price < visit.node->auction.getStartPrice()) {
         return VISIT_MIN_PRICE_LESS_THAN_START_PRICE;
     }
     return SUCCESS;
