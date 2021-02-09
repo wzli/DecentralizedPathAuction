@@ -122,8 +122,8 @@ PathSync::Error PathSync::validate(const Visit& visit) const {
     if (visit.price <= visit.min_price) {
         return VISIT_PRICE_NOT_ABOVE_MIN_PRICE;
     }
-    if (visit.min_price <= visit.node->auction.getStartPrice()) {
-        return VISIT_MIN_PRICE_NOT_ABOVE_START_PRICE;
+    if (visit.min_price < visit.node->auction.getStartPrice()) {
+        return VISIT_MIN_PRICE_LESS_THAN_START_PRICE;
     }
     return SUCCESS;
 }

@@ -603,28 +603,71 @@ TEST(auction, total_duration) {
     }
 }
 
-#if 0
-TEST(auction, collision_checks) {
+////////////////////////////////////////////////////////////////////////////////
+
+TEST(path_sync, move_assign) {
     Graph graph;
-    Graph::Nodes pathway;
-    make_pathway(graph, pathway, {0, 0}, {1, 1}, 2);
-    PathSearch::Config config{"A"};
-    Auction::Bid* prev = nullptr;
-    ASSERT_TRUE(pathway[0]->auction.insertBid({"B", 5}, prev));
-    ASSERT_TRUE(pathway[1]->auction.insertBid({"B", 6}, prev));
-    prev = nullptr;
-    ASSERT_TRUE(pathway[1]->auction.insertBid({"A", 5}, prev));
-    auto& bids = pathway[1]->auction.getBids();
-    ASSERT_FALSE(pathway[0]->auction.checkCollision(3, 4, bids));
-    ASSERT_FALSE(pathway[0]->auction.checkCollision(3, 5, bids));
-    ASSERT_TRUE(pathway[0]->auction.checkCollision(3, 7, bids));
-    ASSERT_TRUE(pathway[0]->auction.checkCollision(3, 8, bids));
-    ASSERT_TRUE(pathway[0]->auction.checkCollision(6, 4, bids));
-    ASSERT_TRUE(pathway[0]->auction.checkCollision(6, 5, bids));
-    ASSERT_FALSE(pathway[0]->auction.checkCollision(6, 7, bids));
-    ASSERT_FALSE(pathway[0]->auction.checkCollision(6, 8, bids));
+    Graph::Nodes nodes;
+    make_pathway(graph, nodes, {0, 0}, {10, 10}, 11);
+    Path path;
+    float t = 0;
+    for (auto& node : nodes) {
+        path.push_back(Visit{node, t++, 1, 0});
+    }
+    // Add two paths to two path_sync with the same graph
+    PathSync path_sync_1;
+    ASSERT_EQ(path_sync_1.updatePath("A", path, 0), PathSync::SUCCESS);
+    for (auto& visit : path) {
+        ++visit.price;
+    }
+    PathSync path_sync_2;
+    ASSERT_EQ(path_sync_2.updatePath("B", path, 0), PathSync::SUCCESS);
+    for (auto& node : nodes) {
+        ASSERT_EQ(node->auction.getBids().size(), 3);
+    }
+    path_sync_1 = std::move(path_sync_2);
+    // expect that path in path_sync 1 is removed, and replaced with the other
+    for (auto& node : nodes) {
+        ASSERT_EQ(node->auction.getBids().size(), 2);
+        ASSERT_EQ(node->auction.getHighestBid()->first, 2);
+    }
+    ASSERT_TRUE(path_sync_2.getPaths().empty());
+    ASSERT_EQ(path_sync_1.getPaths().size(), 1);
+    ASSERT_EQ(path_sync_1.getPaths().count("B"), 1);
 }
-#endif
+
+TEST(path_sync, update_path) {
+    Graph graph;
+    Graph::Nodes nodes;
+    make_pathway(graph, nodes, {0, 0}, {10, 10}, 11);
+    Path path;
+    float t = 0;
+    for (auto& node : nodes) {
+        path.push_back(Visit{node, t++, 1, 0});
+    }
+    // Add two paths to two path_sync with the same graph
+    PathSync path_sync;
+    ASSERT_EQ(path_sync.updatePath("", path, 0), PathSync::AGENT_ID_EMPTY);
+    ASSERT_EQ(path_sync.updatePath("A", path, 0, -1), PathSync::STOP_DURATION_NEGATIVE);
+
+    path[5].node = nullptr;
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_NODE_INVALID);
+    path[5].node = nodes[5];
+
+    path[5].price = 0;
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_PRICE_NOT_ABOVE_MIN_PRICE);
+    path[5].price = 1;
+
+    path[5].min_price = -1;
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_MIN_PRICE_LESS_THAN_START_PRICE);
+    path[5].min_price = 0;
+}
+
+TEST(path_sync, update_progress) {}
+
+TEST(path_sync, remove_path) {}
+
+TEST(path_sync, clear_paths) {}
 
 // TODO:
 // test passive path
