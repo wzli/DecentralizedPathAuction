@@ -37,6 +37,33 @@ void print_graph(const Graph& graph) {
     printf("%lu nodes total\r\n", graph.getNodes().size());
 }
 
+bool save_graph(const Graph& graph, const char* file) {
+    auto fp = fopen(file, "w");
+    if (!fp) {
+        return false;
+    }
+    fputs("digraph {", fp);
+    for (auto& [pos, node] : graph.getNodes()) {
+        fprintf(fp, "  \"%f\n%f\" [pos=\"%f,%f!\"]\r\n", pos.x(), pos.y(), pos.x(), pos.y());
+        for (auto& adj_node : node->edges) {
+            fprintf(fp, "    \"%f\n%f\" -> \"%f\n%f\"\r\n", pos.x(), pos.y(), adj_node->position.x(),
+                    adj_node->position.y());
+        }
+    }
+    fputs("}", fp);
+    return !fclose(fp);
+}
+
+void print_path(const Path& path) {
+    for (auto& visit : path) {
+        printf("{[%.2f %.2f], t: %.2f, p: %.2f, b: %.2f, c: %.2f}\r\n", visit.node->position.x(),
+                visit.node->position.y(), visit.time,
+                visit.price >= std::numeric_limits<float>::max() ? std::numeric_limits<float>::infinity() : visit.price,
+                visit.base_price, visit.node->auction.getBids().find(visit.base_price)->second.cost_estimate);
+    }
+    puts("");
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 TEST(graph, destruct_or_clear_nodes) {
@@ -724,9 +751,163 @@ TEST(path_sync, update_progress) {
     EXPECT_EQ(path_info.path.size(), path.size());
 }
 
-TEST(path_sync, remove_path) {}
+TEST(path_sync, remove_path) {
+    Graph graph;
+    Graph::Nodes nodes;
+    PathSync path_sync;
+    make_pathway(graph, nodes, {0, 0}, {10, 10}, 11);
+    Path path;
+    float t = 0;
+    for (auto& node : nodes) {
+        path.push_back(Visit{node, t++, 1, 0});
+    }
+    ASSERT_EQ(path_sync.removePath("B"), PathSync::AGENT_ID_NOT_FOUND);
 
-TEST(path_sync, clear_paths) {}
+    // insert and remove
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        EXPECT_EQ(nodes[i]->auction.getBids().size(), 2);
+    }
+    ASSERT_EQ(path_sync.removePath("A"), PathSync::SUCCESS);
+    ASSERT_EQ(path_sync.getPaths().count("A"), 0);
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        EXPECT_EQ(nodes[i]->auction.getBids().size(), 1);
+    }
+
+    // insert and remove but with a missing bid during removal
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        EXPECT_EQ(nodes[i]->auction.getBids().size(), 2);
+    }
+    nodes[5]->auction.clearBids(0);
+    ASSERT_EQ(path_sync.removePath("A"), PathSync::VISIT_BID_ALREADY_REMOVED);
+    ASSERT_EQ(path_sync.getPaths().count("A"), 0);
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        EXPECT_EQ(nodes[i]->auction.getBids().size(), 1);
+    }
+}
+
+TEST(path_sync, clear_paths) {
+    Graph graph;
+    Graph::Nodes nodes;
+    PathSync path_sync;
+    make_pathway(graph, nodes, {0, 0}, {10, 10}, 11);
+    Path path;
+    float t = 0;
+    for (auto& node : nodes) {
+        path.push_back(Visit{node, t++, 1, 0});
+    }
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
+    path_sync.clearPaths();
+    EXPECT_EQ(path_sync.getPaths().size(), 0);
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        EXPECT_EQ(nodes[i]->auction.getBids().size(), 1);
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+TEST(path_search, set_destination_checks) {
+    PathSearch path_search({"A"});
+    Graph::NodePtr node(new Graph::Node{{0, 0}});
+    // valid destination
+    EXPECT_EQ(path_search.setDestination({node}), PathSearch::SUCCESS);
+    // passive destination
+    EXPECT_EQ(path_search.setDestination({}), PathSearch::SUCCESS);
+    // invalid destination
+    EXPECT_EQ(path_search.setDestination({nullptr}), PathSearch::DESTINATION_NODE_INVALID);
+    // reject duplicate node
+    EXPECT_EQ(path_search.setDestination({node, node}), PathSearch::DESTINATION_NODE_DUPLICATED);
+    // reject no parking
+    node->state = Graph::Node::NO_PARKING;
+    EXPECT_EQ(path_search.setDestination({node}), PathSearch::DESTINATION_NODE_NO_PARKING);
+}
+
+TEST(path_search, iterate_search_checks) {
+    PathSearch path_search({"A"});
+    Graph::NodePtr node(new Graph::Node{{0, 0}});
+    Path path = {{node}};
+
+    // config validation
+    auto& config = path_search.editConfig();
+
+    config.agent_id.clear();
+    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::CONFIG_AGENT_ID_EMPTY);
+    config.agent_id = "A";
+
+    config.time_exchange_rate = 0;
+    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::CONFIG_TIME_EXCHANGE_RATE_NON_POSITIVE);
+    config.time_exchange_rate = 1;
+
+    config.travel_time = nullptr;
+    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::CONFIG_TRAVEL_TIME_MISSING);
+    config.travel_time = PathSearch::travelDistance;
+
+    // check source node
+    path.clear();
+    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::SOURCE_NODE_NOT_PROVIDED);
+    path.push_back({nullptr});
+    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::SOURCE_NODE_INVALID);
+    path = {{node}};
+    node->state = Graph::Node::DISABLED;
+    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::SOURCE_NODE_DISABLED);
+    node->state = Graph::Node::ENABLED;
+
+    // check success
+    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::SUCCESS);
+}
+
+Graph test_graph;
+std::vector<Graph::Nodes> test_nodes;
+
+TEST(path_search, make_test_graph) {
+    /*
+        make the graph below:
+        00-01-02-03-04-05-06-07-08-09
+        |
+        10-11-12-13-14-15-16-17-18-19
+        |
+        20-21-22-23-24-25-26-27-28-29
+    */
+    auto& rows = test_nodes;
+    rows.resize(3);
+    make_pathway(test_graph, rows[0], {0, 0}, {90, 0}, 10);
+    make_pathway(test_graph, rows[1], {0, 10}, {90, 10}, 10);
+    make_pathway(test_graph, rows[2], {0, 20}, {90, 20}, 10);
+    rows[0][0]->edges.push_back(rows[1][0]);
+    rows[1][0]->edges.push_back(rows[0][0]);
+    rows[1][0]->edges.push_back(rows[2][0]);
+    rows[2][0]->edges.push_back(rows[1][0]);
+    // save_graph(graph, "graph.gv");
+}
+
+TEST(path_search, single_passive) {
+    PathSearch path_search({"A"});
+    Path path = {{test_nodes[0][0]}};
+    // set all nodes as no parking execpt 1
+    for (auto& row : test_nodes) {
+        for (auto& node : row) {
+            node->state = Graph::Node::NO_PARKING;
+        }
+    }
+    test_nodes[2][9]->state = Graph::Node::ENABLED;
+
+    for (int calls = 0; calls < 1000; ++calls) {
+        auto error = path_search.iterateSearch(path);
+        print_path(path);
+        if (error == PathSearch::SUCCESS) {
+            EXPECT_EQ(calls, 145);
+            break;
+        }
+        EXPECT_TRUE(error == PathSearch::PATH_EXTENDED || error == PathSearch::PATH_CONTRACTED);
+    }
+
+    for (auto& row : test_nodes) {
+        for (auto& node : row) {
+            node->state = Graph::Node::ENABLED;
+        }
+    }
+}
 
 // TODO:
 // test passive path
