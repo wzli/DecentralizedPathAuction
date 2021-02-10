@@ -645,7 +645,7 @@ TEST(path_sync, update_path) {
     for (auto& node : nodes) {
         path.push_back(Visit{node, t++, 1, 0});
     }
-    // Add two paths to two path_sync with the same graph
+    // input sanity checks
     PathSync path_sync;
     ASSERT_EQ(path_sync.updatePath("", path, 0), PathSync::AGENT_ID_EMPTY);
     ASSERT_EQ(path_sync.updatePath("A", path, 0, -1), PathSync::STOP_DURATION_NEGATIVE);
@@ -655,12 +655,35 @@ TEST(path_sync, update_path) {
     path[5].node = nodes[5];
 
     path[5].price = 0;
-    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_PRICE_NOT_ABOVE_MIN_PRICE);
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_PRICE_NOT_ABOVE_BASE_PRICE);
     path[5].price = 1;
 
     path[5].base_price = -1;
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_MIN_PRICE_LESS_THAN_START_PRICE);
     path[5].base_price = 0;
+
+    path[5].time *= -1;
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::PATH_TIME_DECREASED);
+    path[5].time *= -1;
+
+    // valid insert
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
+
+    // valid stale path id
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::PATH_ID_STALE);
+
+    // reject duplicate bids
+    ASSERT_EQ(path_sync.updatePath("B", path, 0), PathSync::VISIT_PRICE_ALREADY_EXIST);
+
+    // valid update
+    for (auto& node : nodes) {
+        EXPECT_EQ(node->auction.getBids().size(), 2);
+    }
+    ASSERT_EQ(path_sync.updatePath("A", path, 1), PathSync::SUCCESS);
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::PATH_ID_STALE);
+    for (auto& node : nodes) {
+        EXPECT_EQ(node->auction.getBids().size(), 2);
+    }
 }
 
 TEST(path_sync, update_progress) {}

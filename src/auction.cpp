@@ -3,12 +3,12 @@
 namespace decentralized_path_auction {
 
 Auction::~Auction() {
-    for (auto& [_, bid] : _bids) {
-        if (bid.next) {
-            bid.next->prev = bid.prev;
+    for (auto& bid : _bids) {
+        if (bid.second.next) {
+            bid.second.next->prev = bid.second.prev;
         }
-        if (bid.prev) {
-            bid.prev->next = bid.next;
+        if (bid.second.prev) {
+            bid.second.prev->next = bid.second.next;
         }
     }
 }

@@ -49,8 +49,8 @@ public:
 
     template <class Predicate>
     NodePtr query(const Predicate& predicate) const {
-        auto query = _nodes.qbegin(predicate);
-        return query == _nodes.qend() ? nullptr : std::move(query->second);
+        auto q = _nodes.qbegin(predicate);
+        return q == _nodes.qend() ? nullptr : std::move(q->second);
     }
 
     NodePtr findNode(Point2D position) const { return query(bg::index::contains(position)); }

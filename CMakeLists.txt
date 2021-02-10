@@ -18,10 +18,11 @@ target_include_directories(decentralized_path_auction PUBLIC include)
 
 # tests
 find_package(GTest) 
+add_subdirectory("/usr/src/gtest" ${CMAKE_BINARY_DIR}/gtest)
 
-add_executable(test
+add_executable(test_app
     test/test.cpp
 )
 
-target_link_libraries(test gtest decentralized_path_auction)
-target_include_directories(test PUBLIC include)
+target_link_libraries(test_app gtest decentralized_path_auction)
+target_include_directories(test_app PUBLIC include)
