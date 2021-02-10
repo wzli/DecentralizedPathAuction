@@ -684,9 +684,45 @@ TEST(path_sync, update_path) {
     for (auto& node : nodes) {
         EXPECT_EQ(node->auction.getBids().size(), 2);
     }
+    nodes[5]->auction.clearBids(0);
+    ASSERT_EQ(path_sync.updatePath("A", path, 2), PathSync::VISIT_BID_ALREADY_REMOVED);
+
+    auto& path_info = path_sync.getPaths().at("A");
+    EXPECT_EQ(path_info.path_id, 2);
+    EXPECT_EQ(path_info.path.size(), path.size());
 }
 
-TEST(path_sync, update_progress) {}
+TEST(path_sync, update_progress) {
+    Graph graph;
+    Graph::Nodes nodes;
+    PathSync path_sync;
+    make_pathway(graph, nodes, {0, 0}, {10, 10}, 11);
+    Path path;
+    float t = 0;
+    for (auto& node : nodes) {
+        path.push_back(Visit{node, t++, 1, 0});
+    }
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
+    auto& path_info = path_sync.getPaths().at("A");
+    EXPECT_EQ(path_info.path.size(), path.size());
+    EXPECT_EQ(path_info.progress, 0);
+
+    // input checks
+    ASSERT_EQ(path_sync.updateProgress("B", 0, 0), PathSync::AGENT_ID_NOT_FOUND);
+    ASSERT_EQ(path_sync.updateProgress("A", 0, 1), PathSync::PATH_ID_MISMATCH);
+    ASSERT_EQ(path_sync.updateProgress("A", path.size(), 0), PathSync::PROGRESS_EXCEED_PATH_SIZE);
+
+    // succeed
+    ASSERT_EQ(path_sync.updateProgress("A", 5, 0), PathSync::SUCCESS);
+    ASSERT_EQ(path_sync.updateProgress("A", 5, 0), PathSync::SUCCESS);
+    // first bids before updated progress should be removed
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        EXPECT_EQ(nodes[i]->auction.getBids().size(), i < 5 ? 1 : 2);
+    }
+    EXPECT_EQ(path_sync.updateProgress("A", 0, 0), PathSync::PROGRESS_DECREASE_DENIED);
+    EXPECT_EQ(path_info.progress, 5);
+    EXPECT_EQ(path_info.path.size(), path.size());
+}
 
 TEST(path_sync, remove_path) {}
 

@@ -64,6 +64,7 @@ PathSearch::Error PathSearch::iterateSearch(Path& path, size_t iterations) const
         return DESTINATION_NODE_NO_PARKING;
     }
     // source visit is required to have the highest bid in auction to claim the source node
+    path.front().time = 0;
     path.front().price = std::numeric_limits<float>::max();
     path.front().base_price = src_node->auction.getHighestBid(_config.agent_id)->first;
     size_t original_path_size = path.size();
