@@ -256,8 +256,8 @@ float PathSearch::determinePrice(float base_price, float price_limit, float cost
     }
     // willing to pay additionally up to the surplus benefit compared to best alternative
     float price = base_price + alternative_cost - cost;
-    if (price <= min_price ||
-            (price_limit >= std::numeric_limits<float>::max() && price_limit >= std::numeric_limits<float>::max())) {
+    if (price <= min_price || (alternative_cost >= std::numeric_limits<float>::max() &&
+                                      price_limit >= std::numeric_limits<float>::max())) {
         return min_price;
     }
     return std::min(price, price_limit - _config.price_increment);

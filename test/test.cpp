@@ -967,6 +967,7 @@ TEST(path_search, single_passive_path_iterations) {
     path = {{test_nodes[0][5]}};
     ASSERT_EQ(path_search.iterateSearch(path, 100), PathSearch::SUCCESS);
     EXPECT_EQ(path.back().node, test_nodes[2][9]);
+    // print_path(path);
 
     // reset node states to enabled
     for (auto& row : test_nodes) {
