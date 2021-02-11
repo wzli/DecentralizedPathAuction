@@ -56,7 +56,7 @@ bool save_graph(const Graph& graph, const char* file) {
 
 void print_path(const Path& path) {
     for (auto& visit : path) {
-        printf("{[%.2f %.2f], t: %.2f, p: %.2f, b: %.2f, c: %.2f}\r\n", visit.node->position.x(),
+        printf("{[%.2f %.2f], t: %.2f, p: %.2f, b: %.2f, c: %f}\r\n", visit.node->position.x(),
                 visit.node->position.y(), visit.time,
                 visit.price >= std::numeric_limits<float>::max() ? std::numeric_limits<float>::infinity() : visit.price,
                 visit.base_price, visit.node->auction.getBids().find(visit.base_price)->second.cost_estimate);
@@ -888,9 +888,8 @@ TEST(path_search, make_test_graph) {
     // save_graph(graph, "graph.gv");
 }
 
-TEST(path_search, single_passive) {
+TEST(path_search, single_passive_path) {
     PathSearch path_search({"A"});
-    Path path = {{test_nodes[0][0]}};
     // set all nodes as no parking execpt 1
     for (auto& row : test_nodes) {
         for (auto& node : row) {
@@ -899,16 +898,77 @@ TEST(path_search, single_passive) {
     }
     test_nodes[2][9]->state = Graph::Node::ENABLED;
 
-    for (int calls = 0; calls < 1000; ++calls) {
+    int calls;
+    // try to find a passive path to the single parkable node
+    Path path = {{test_nodes[0][0]}};
+    for (calls = 0; calls < 200; ++calls) {
         auto error = path_search.iterateSearch(path);
-        print_path(path);
         if (error == PathSearch::SUCCESS) {
             break;
         }
         EXPECT_TRUE(error == PathSearch::PATH_EXTENDED || error == PathSearch::PATH_CONTRACTED);
-        EXPECT_LE(calls, 145);
     }
+    EXPECT_EQ(calls, 164);
+    EXPECT_EQ(path.back().node, test_nodes[2][9]);
 
+    // expect a second attempt to take less iterations via previously cached cost estimates
+    path.resize(1);
+    for (calls = 0; calls < 200; ++calls) {
+        auto error = path_search.iterateSearch(path);
+        if (error == PathSearch::SUCCESS) {
+            break;
+        }
+        EXPECT_TRUE(error == PathSearch::PATH_EXTENDED || error == PathSearch::PATH_CONTRACTED);
+    }
+    EXPECT_EQ(calls, 11);
+    EXPECT_EQ(path.back().node, test_nodes[2][9]);
+
+    // try from a different start location
+    path = {{test_nodes[0][5]}};
+    for (calls = 0; calls < 200; ++calls) {
+        auto error = path_search.iterateSearch(path);
+        if (error == PathSearch::SUCCESS) {
+            break;
+        }
+        EXPECT_TRUE(error == PathSearch::PATH_EXTENDED || error == PathSearch::PATH_CONTRACTED);
+    }
+    EXPECT_EQ(calls, 38);
+    EXPECT_EQ(path.back().node, test_nodes[2][9]);
+
+    // reset node states to enabled
+    for (auto& row : test_nodes) {
+        for (auto& node : row) {
+            node->state = Graph::Node::ENABLED;
+        }
+    }
+}
+
+TEST(path_search, single_passive_path_iterations) {
+    PathSearch path_search({"B"});
+    // set all nodes as no parking execpt 1
+    for (auto& row : test_nodes) {
+        for (auto& node : row) {
+            node->state = Graph::Node::NO_PARKING;
+        }
+    }
+    test_nodes[2][9]->state = Graph::Node::ENABLED;
+
+    // find the only node that allows parking
+    Path path = {{test_nodes[0][0]}};
+    ASSERT_EQ(path_search.iterateSearch(path, 400), PathSearch::SUCCESS);
+    EXPECT_EQ(path.back().node, test_nodes[2][9]);
+
+    // expect a second attempt to take less iterations via previously cached cost estimates
+    path.resize(1);
+    ASSERT_EQ(path_search.iterateSearch(path, 20), PathSearch::SUCCESS);
+    EXPECT_EQ(path.back().node, test_nodes[2][9]);
+
+    // try from a different start location
+    path = {{test_nodes[0][5]}};
+    ASSERT_EQ(path_search.iterateSearch(path, 100), PathSearch::SUCCESS);
+    EXPECT_EQ(path.back().node, test_nodes[2][9]);
+
+    // reset node states to enabled
     for (auto& row : test_nodes) {
         for (auto& node : row) {
             node->state = Graph::Node::ENABLED;

@@ -38,7 +38,9 @@ public:
     };
 
     PathSearch(Config config)
-            : _config(std::move(config)) {}
+            : _config(std::move(config))
+            , _cost_nonce(std::hash<std::string>()(_config.agent_id))
+            , _cycle_nonce(_cost_nonce) {}
 
     Error setDestination(Graph::Nodes nodes);
     Error iterateSearch(Path& path, size_t iterations = 0) const;

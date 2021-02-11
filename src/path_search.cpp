@@ -26,9 +26,9 @@ PathSearch::Error PathSearch::Config::validate() const {
 
 PathSearch::Error PathSearch::setDestination(Graph::Nodes nodes) {
     // only reset cost estimates when new destinations are added
-    _cost_nonce += nodes.empty() || std::any_of(nodes.begin(), nodes.end(), [this](const Graph::NodePtr& node) {
-        return !_dst_nodes.containsNode(node);
-    });
+    _cost_nonce += (nodes.empty() && !_dst_nodes.getNodes().empty()) ||
+                   std::any_of(nodes.begin(), nodes.end(),
+                           [this](const Graph::NodePtr& node) { return !_dst_nodes.containsNode(node); });
     // reset destination nodes
     _dst_nodes.detachNodes();
     for (auto& node : nodes) {
@@ -137,6 +137,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
         float wait_duration = 0;
         // iterate in reverse order (highest to lowest) through each bid in the auction of the adjacent node
         auto& adj_bids = adj_node->auction.getBids();
+        float prev_base_price = prev_node == adj_node ? (&visit - 1)->base_price : adj_bids.begin()->first - 1;
         for (auto adj_bid = adj_bids.rbegin(); adj_bid != adj_bids.rend(); ++adj_bid) {
             auto& [bid_price, bid] = *adj_bid;
             // skip bids that belong to this agent
@@ -148,15 +149,18 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
             if (adj_bid != adj_bids.rbegin()) {
                 wait_duration = std::max(wait_duration, std::prev(adj_bid)->second.totalDuration());
             }
-            // skip bid if it requires waiting but current node doesn't allow it
-            if (visit.node->state == Graph::Node::NO_STOPPING && wait_duration > earliest_arrival_time) {
-                debug_puts("  no stopping");
-                continue;
-            }
-            // skip the bid if it causes cyclic dependencies
-            if (bid.detectCycle(_cycle_nonce, _config.agent_id)) {
-                debug_puts("  no has cycle");
-                continue;
+            // allow cost estimate to consider links back to previous visit
+            if (bid_price != prev_base_price) {
+                // skip bid if it requires waiting but current node doesn't allow it
+                if (visit.node->state == Graph::Node::NO_STOPPING && wait_duration > earliest_arrival_time) {
+                    debug_puts("  no stopping");
+                    continue;
+                }
+                // skip the bid if it causes cyclic dependencies
+                if (bid.detectCycle(_cycle_nonce, _config.agent_id)) {
+                    debug_puts("  no has cycle");
+                    continue;
+                }
             }
             // arrival_time factors in how long you have to wait
             float arrival_time = std::max(wait_duration, earliest_arrival_time);
