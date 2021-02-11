@@ -835,6 +835,10 @@ TEST(path_search, iterate_search_checks) {
     EXPECT_EQ(path_search.iterateSearch(path), PathSearch::CONFIG_AGENT_ID_EMPTY);
     config.agent_id = "A";
 
+    config.price_increment = 0;
+    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::CONFIG_PRICE_INCREMENT_NON_POSITIVE);
+    config.price_increment = 1;
+
     config.time_exchange_rate = 0;
     EXPECT_EQ(path_search.iterateSearch(path), PathSearch::CONFIG_TIME_EXCHANGE_RATE_NON_POSITIVE);
     config.time_exchange_rate = 1;
@@ -852,7 +856,10 @@ TEST(path_search, iterate_search_checks) {
     node->state = Graph::Node::DISABLED;
     EXPECT_EQ(path_search.iterateSearch(path), PathSearch::SOURCE_NODE_DISABLED);
     node->state = Graph::Node::ENABLED;
-
+    Auction::Bid* prev = nullptr;
+    ASSERT_EQ(node->auction.insertBid("B", std::numeric_limits<float>::max(), 0, prev), Auction::SUCCESS);
+    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::SOURCE_NODE_OCCUPIED);
+    ASSERT_EQ(node->auction.removeBid("B", std::numeric_limits<float>::max()), Auction::SUCCESS);
     // check success
     EXPECT_EQ(path_search.iterateSearch(path), PathSearch::SUCCESS);
 }
@@ -896,10 +903,10 @@ TEST(path_search, single_passive) {
         auto error = path_search.iterateSearch(path);
         print_path(path);
         if (error == PathSearch::SUCCESS) {
-            EXPECT_EQ(calls, 145);
             break;
         }
         EXPECT_TRUE(error == PathSearch::PATH_EXTENDED || error == PathSearch::PATH_CONTRACTED);
+        EXPECT_LE(calls, 145);
     }
 
     for (auto& row : test_nodes) {

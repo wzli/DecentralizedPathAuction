@@ -3,14 +3,17 @@
 #include <algorithm>
 #include <cassert>
 
-#define debug_printf(...) printf(__VA_ARGS__)
-#define debug_puts(x) puts(x)
+#define debug_printf(...)  // printf(__VA_ARGS__)
+#define debug_puts(x)      // puts(x)
 
 namespace decentralized_path_auction {
 
 PathSearch::Error PathSearch::Config::validate() const {
     if (agent_id.empty()) {
         return CONFIG_AGENT_ID_EMPTY;
+    }
+    if (price_increment <= 0) {
+        return CONFIG_PRICE_INCREMENT_NON_POSITIVE;
     }
     if (time_exchange_rate <= 0) {
         return CONFIG_TIME_EXCHANGE_RATE_NON_POSITIVE;
@@ -70,6 +73,10 @@ PathSearch::Error PathSearch::iterateSearch(Path& path, size_t iterations) const
     path.front().time = 0;
     path.front().price = std::numeric_limits<float>::max();
     path.front().base_price = src_node->auction.getHighestBid(_config.agent_id)->first;
+    if (path.front().base_price >= std::numeric_limits<float>::max()) {
+        path.resize(1);
+        return SOURCE_NODE_OCCUPIED;
+    }
     size_t original_path_size = path.size();
     // truncate visits in path that are invalid (node got deleted/disabled or bid got removed)
     path.erase(std::find_if(path.begin() + 1, path.end(),
@@ -172,14 +179,9 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
     }
     // decide on a bid price for the min cost visit
     auto higher_bid = visit.node->auction.getHigherBid(min_cost_visit.base_price, _config.agent_id);
-    if (higher_bid == visit.node->auction.getBids().end()) {
-        // no upper limit, willing to pay additionally up to the surplus benefit compared to 2nd best option
-        debug_printf("2nd price %f \r\n", min_cost_visit.price);
-        min_cost_visit.price += min_cost_visit.base_price - min_cost;  // + 2nd best min cost (already stored)
-    } else {
-        // if upper limit is next highest bid, set price to midway between bids
-        min_cost_visit.price = 0.5f * (min_cost_visit.base_price + higher_bid->first);
-    }
+    min_cost_visit.price = determinePrice(min_cost_visit.base_price,
+            higher_bid == visit.node->auction.getBids().end() ? std::numeric_limits<float>::max() : higher_bid->first,
+            min_cost, min_cost_visit.price);
     return min_cost;
 }
 
@@ -238,6 +240,23 @@ float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid
         }
     }
     return bid.cost_estimate;
+}
+
+float PathSearch::determinePrice(float base_price, float price_limit, float cost, float alternative_cost) const {
+    assert(cost <= alternative_cost);
+    assert(base_price <= price_limit);
+    float min_price = base_price + _config.price_increment;
+    float mid_price = (base_price + price_limit) / 2;
+    if (mid_price <= min_price) {
+        return mid_price;
+    }
+    // willing to pay additionally up to the surplus benefit compared to best alternative
+    float price = base_price + alternative_cost - cost;
+    if (price <= min_price ||
+            (price_limit >= std::numeric_limits<float>::max() && price_limit >= std::numeric_limits<float>::max())) {
+        return min_price;
+    }
+    return std::min(price, price_limit - _config.price_increment);
 }
 
 }  // namespace decentralized_path_auction
