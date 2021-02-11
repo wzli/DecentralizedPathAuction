@@ -978,7 +978,6 @@ TEST(path_search, single_passive_path_iterations) {
 }
 
 // TODO:
-// test passive path
 // test evading into aile
 // test cyclic dependencies check
 // test back and forth path wait dependencies

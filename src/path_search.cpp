@@ -210,13 +210,16 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) const {
     // truncate rest of path and proceed to previous visit if current visit is a dead end
     if (!min_cost_visit.node) {
         path.resize(visit_index + 1);
-    }
-    // if next visit in path is not the min cost visit found
-    else if (&visit == &path.back() || (&visit + 1)->node != min_cost_visit.node ||
-             (&visit + 1)->base_price != min_cost_visit.base_price) {
+    } else if (&visit == &path.back() || (&visit + 1)->node != min_cost_visit.node ||
+               (&visit + 1)->base_price != min_cost_visit.base_price) {
+        // if next visit in path is not the min cost visit found
         // truncate path upto current visit and append min cost visit to path
         path.resize(visit_index + 1);
         path.push_back(std::move(min_cost_visit));
+    } else {
+        // updated existing visit
+        (&visit + 1)->time = min_cost_visit.time;
+        (&visit + 1)->price = min_cost_visit.price;
     }
     // WARNING: visit ref variable is invalidated at this point after modifying path vector
     return cost_increased;
