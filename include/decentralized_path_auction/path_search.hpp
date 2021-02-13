@@ -38,12 +38,10 @@ public:
     };
 
     PathSearch(Config config)
-            : _config(std::move(config))
-            , _cost_nonce(std::hash<std::string>()(_config.agent_id))
-            , _cycle_nonce(_cost_nonce) {}
+            : _config(std::move(config)) {}
 
-    Error setDestination(Graph::Nodes nodes);
-    Error iterateSearch(Path& path, size_t iterations = 0) const;
+    Error reset(Graph::Nodes nodes);
+    Error iterate(Path& path, size_t iterations = 0);
 
     Config& editConfig() { return _config; }
 
@@ -52,16 +50,16 @@ public:
     }
 
 private:
-    float findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Path& path) const;
-    bool appendMinCostVisit(size_t visit_index, Path& path) const;
+    float getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid);
+    float findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Path& path);
+    bool appendMinCostVisit(size_t visit_index, Path& path);
     bool checkTermination(const Visit& visit) const;
-    float getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid) const;
     float determinePrice(float base_price, float price_limit, float cost, float alternative_cost) const;
 
     Config _config;
     Graph _dst_nodes;
-    size_t _cost_nonce = 0;
-    mutable size_t _cycle_nonce = 0;
+    std::vector<bool> _cycle_visits;
+    std::vector<std::pair<const Auction::Bid*, float>> _cost_estimates;
 };
 
 }  // namespace decentralized_path_auction

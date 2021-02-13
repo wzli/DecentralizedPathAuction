@@ -2,6 +2,9 @@
 
 namespace decentralized_path_auction {
 
+Auction::Auction(float start_price)
+        : _bids({{start_price, {""}}}) {}
+
 Auction::~Auction() {
     for (auto& bid : _bids) {
         if (bid.second.next) {
@@ -19,7 +22,7 @@ Auction::Error Auction::insertBid(const std::string& bidder, float price, float 
         return BIDDER_EMPTY;
     }
     // must be greater than start price
-    if (price <= getStartPrice()) {
+    if (price <= _bids.begin()->first) {
         return PRICE_BELOW_START;
     }
     // positive duration only
@@ -98,19 +101,21 @@ Auction::Bids::const_iterator Auction::getHighestBid(const std::string& exclude_
     return bid;
 }
 
-bool Auction::Bid::detectCycle(size_t nonce, const std::string& exclude_bidder) const {
+bool Auction::Bid::detectCycle(std::vector<bool>& visited, const std::string& exclude_bidder) const {
+    const auto idx = 2 * id;
+    visited.resize(std::max(visited.size(), idx + 2));
     // cycle occured if previously visited bid was visited again
-    if (cycle_nonce == nonce) {
-        return cycle_flag;
+    if (visited[idx + 1]) {
+        return visited[idx];
     }
     // mark traversed bids as visited
-    cycle_nonce = nonce;
-    cycle_flag = true;
+    visited[idx + 1] = true;
+    visited[idx] = true;
     // detect cycle for next bids in time (first by auction, then by path)
-    return cycle_flag = (prev && prev->lower && prev->lower->detectCycle(nonce, exclude_bidder)) ||
-                        (lower && lower->detectCycle(nonce, exclude_bidder)) ||
-                        // skip the current bid's path if the bidder is excluded
-                        (bidder != exclude_bidder && next && next->detectCycle(nonce, exclude_bidder));
+    return visited[idx] = (prev && prev->lower && prev->lower->detectCycle(visited, exclude_bidder)) ||
+                          (lower && lower->detectCycle(visited, exclude_bidder)) ||
+                          // skip the current bid's path if the bidder is excluded
+                          (bidder != exclude_bidder && next && next->detectCycle(visited, exclude_bidder));
 }
 
 }  // namespace decentralized_path_auction

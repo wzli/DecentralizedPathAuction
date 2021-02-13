@@ -5,6 +5,9 @@
 
 using namespace decentralized_path_auction;
 
+Graph* test_graph;
+Graph::Nodes* test_nodes;
+
 void make_pathway(Graph& graph, Graph::Nodes& pathway, Point2D a, Point2D b, size_t n,
         Graph::Node::State state = Graph::Node::ENABLED) {
     ASSERT_GT(n, 1);
@@ -56,10 +59,8 @@ bool save_graph(const Graph& graph, const char* file) {
 
 void print_path(const Path& path) {
     for (auto& visit : path) {
-        printf("{[%.2f %.2f], t: %.2f, p: %.2f, b: %.2f, c: %f}\r\n", visit.node->position.x(),
-                visit.node->position.y(), visit.time,
-                visit.price >= std::numeric_limits<float>::max() ? std::numeric_limits<float>::infinity() : visit.price,
-                visit.base_price, visit.node->auction.getBids().find(visit.base_price)->second.cost_estimate);
+        printf("{[%.2f %.2f], t: %.2f, p: %.2f, b: %.2f}\r\n", visit.node->position.x(), visit.node->position.y(),
+                visit.time, visit.price, visit.base_price);
     }
     puts("");
 }
@@ -199,7 +200,7 @@ TEST(graph, validate_node) {
 
 TEST(auction, constructor) {
     Auction auction(10);
-    EXPECT_EQ(auction.getStartPrice(), 10);
+    EXPECT_EQ(auction.getBids().begin()->first, 10);
     EXPECT_EQ(auction.getBids().size(), 1);
     auto& [start_price, start_bid] = *auction.getBids().begin();
     EXPECT_EQ(start_price, 10);
@@ -232,6 +233,22 @@ void check_auction_links(const Auction::Bids& bids) {
         EXPECT_EQ(bid->lower->next, bid->lower == &bids.begin()->second ? nullptr : bid);
     }
     EXPECT_EQ(i, bids.size() - 1);
+}
+
+TEST(auction, dense_id) {
+    struct T {};
+    std::vector<DenseId<T>> ids(200);
+    for (size_t i = 0; i < ids.size(); ++i) {
+        ASSERT_EQ(i, ids[i]);
+    }
+    ids.resize(50);
+    for (size_t i = 0; i < ids.size(); ++i) {
+        ASSERT_EQ(i, ids[i]);
+    }
+    ids.resize(100);
+    for (size_t i = 0; i < ids.size(); ++i) {
+        ASSERT_EQ(i < 50 ? i : 249 - i, ids[i]);
+    }
 }
 
 TEST(auction, destructor) {
@@ -349,28 +366,34 @@ TEST(auction, get_highest_bid) {
 }
 
 TEST(auction, detect_cycle) {
-    size_t nonce = 0;
+    std::vector<bool> visited;
     {
         Auction auction(0);
         Auction::Bid* prev = nullptr;
         // single bid should not have any cycles
         EXPECT_EQ(auction.insertBid("A", 1, 0, prev), Auction::SUCCESS);
-        EXPECT_FALSE(prev->detectCycle(++nonce));
+        visited.clear();
+        EXPECT_FALSE(prev->detectCycle(visited));
 
         // two consecutive bids in the same auction with inversed order causes cycle
         EXPECT_EQ(auction.insertBid("A", 2, 0, prev), Auction::SUCCESS);
-        EXPECT_TRUE(prev->detectCycle(++nonce));
-        EXPECT_TRUE(prev->prev->detectCycle(++nonce));
+        visited.clear();
+        ASSERT_TRUE(prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_TRUE(prev->prev->detectCycle(visited));
 
         // remove culptrit bid
         prev = prev->prev;
         EXPECT_EQ(auction.removeBid("A", 2), Auction::SUCCESS);
-        EXPECT_FALSE(prev->detectCycle(++nonce));
+        visited.clear();
+        EXPECT_FALSE(prev->detectCycle(visited));
 
         // two consecutive bids in the same auction without order inversion still causes cycle
         EXPECT_EQ(auction.insertBid("A", 0.5f, 0, prev), Auction::SUCCESS);
-        EXPECT_TRUE(prev->detectCycle(++nonce));
-        EXPECT_TRUE(prev->prev->detectCycle(++nonce));
+        visited.clear();
+        EXPECT_TRUE(prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_TRUE(prev->prev->detectCycle(visited));
     }
     {
         // auc1  auc2
@@ -387,10 +410,14 @@ TEST(auction, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
         EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
-        EXPECT_FALSE(prev_a->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->detectCycle(++nonce));
-        EXPECT_FALSE(prev_a->prev->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->prev->detectCycle(++nonce));
+        visited.clear();
+        EXPECT_FALSE(prev_a->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_b->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_a->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_b->prev->detectCycle(visited));
     }
     {
         // auc1  auc2
@@ -407,10 +434,14 @@ TEST(auction, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
         EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
-        EXPECT_FALSE(prev_a->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->detectCycle(++nonce));
-        EXPECT_FALSE(prev_a->prev->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->prev->detectCycle(++nonce));
+        visited.clear();
+        EXPECT_FALSE(prev_a->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_b->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_a->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_b->prev->detectCycle(visited));
     }
     {
         // auc1  auc2
@@ -427,10 +458,14 @@ TEST(auction, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
         EXPECT_EQ(auc1.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
-        EXPECT_TRUE(prev_a->detectCycle(++nonce));
-        EXPECT_TRUE(prev_b->detectCycle(++nonce));
-        EXPECT_TRUE(prev_a->prev->detectCycle(++nonce));
-        EXPECT_TRUE(prev_b->prev->detectCycle(++nonce));
+        visited.clear();
+        EXPECT_TRUE(prev_a->detectCycle(visited));
+        visited.clear();
+        EXPECT_TRUE(prev_b->detectCycle(visited));
+        visited.clear();
+        EXPECT_TRUE(prev_a->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_TRUE(prev_b->prev->detectCycle(visited));
     }
     {
         // auc1  auc2
@@ -447,10 +482,14 @@ TEST(auction, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
         EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc1.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
-        EXPECT_TRUE(prev_a->detectCycle(++nonce));
-        EXPECT_TRUE(prev_b->detectCycle(++nonce));
-        EXPECT_TRUE(prev_a->prev->detectCycle(++nonce));
-        EXPECT_TRUE(prev_b->prev->detectCycle(++nonce));
+        visited.clear();
+        EXPECT_TRUE(prev_a->detectCycle(visited));
+        visited.clear();
+        EXPECT_TRUE(prev_b->detectCycle(visited));
+        visited.clear();
+        EXPECT_TRUE(prev_a->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_TRUE(prev_b->prev->detectCycle(visited));
     }
     {
         // auc1  auc2
@@ -467,10 +506,14 @@ TEST(auction, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("A", 2, 0, prev_a), Auction::SUCCESS);
         EXPECT_EQ(auc2.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
-        EXPECT_TRUE(prev_a->detectCycle(++nonce));
-        EXPECT_TRUE(prev_b->detectCycle(++nonce));
-        EXPECT_TRUE(prev_a->prev->detectCycle(++nonce));
-        EXPECT_TRUE(prev_b->prev->detectCycle(++nonce));
+        visited.clear();
+        EXPECT_TRUE(prev_a->detectCycle(visited));
+        visited.clear();
+        EXPECT_TRUE(prev_b->detectCycle(visited));
+        visited.clear();
+        EXPECT_TRUE(prev_a->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_TRUE(prev_b->prev->detectCycle(visited));
     }
     {
         // auc1        auc2
@@ -491,12 +534,18 @@ TEST(auction, detect_cycle) {
         EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(aucb.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
-        EXPECT_FALSE(prev_a->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->detectCycle(++nonce));
-        EXPECT_FALSE(prev_a->prev->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->prev->detectCycle(++nonce));
-        EXPECT_FALSE(prev_a->prev->prev->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->prev->prev->detectCycle(++nonce));
+        visited.clear();
+        EXPECT_FALSE(prev_a->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_b->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_a->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_b->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_a->prev->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_b->prev->prev->detectCycle(visited));
     }
     {
         // auc1        auc2
@@ -517,12 +566,18 @@ TEST(auction, detect_cycle) {
         EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(aucb.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc2.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
-        EXPECT_FALSE(prev_a->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->detectCycle(++nonce));
-        EXPECT_FALSE(prev_a->prev->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->prev->detectCycle(++nonce));
-        EXPECT_FALSE(prev_a->prev->prev->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->prev->prev->detectCycle(++nonce));
+        visited.clear();
+        EXPECT_FALSE(prev_a->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_b->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_a->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_b->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_a->prev->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_b->prev->prev->detectCycle(visited));
     }
     {
         // auc1        auc2
@@ -543,12 +598,18 @@ TEST(auction, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(aucb.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
-        EXPECT_FALSE(prev_a->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->detectCycle(++nonce));
-        EXPECT_FALSE(prev_a->prev->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->prev->detectCycle(++nonce));
-        EXPECT_FALSE(prev_a->prev->prev->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->prev->prev->detectCycle(++nonce));
+        visited.clear();
+        EXPECT_FALSE(prev_a->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_b->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_a->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_b->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_a->prev->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_b->prev->prev->detectCycle(visited));
     }
     {
         // auc1        auc2
@@ -569,12 +630,18 @@ TEST(auction, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(aucb.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc1.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
-        EXPECT_FALSE(prev_a->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->detectCycle(++nonce));
-        EXPECT_FALSE(prev_a->prev->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->prev->detectCycle(++nonce));
-        EXPECT_FALSE(prev_a->prev->prev->detectCycle(++nonce));
-        EXPECT_FALSE(prev_b->prev->prev->detectCycle(++nonce));
+        visited.clear();
+        EXPECT_FALSE(prev_a->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_b->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_a->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_b->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_a->prev->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_FALSE(prev_b->prev->prev->detectCycle(visited));
     }
     {
         // auc1        auc2
@@ -595,12 +662,18 @@ TEST(auction, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(aucb.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
-        EXPECT_TRUE(prev_a->detectCycle(++nonce));
-        EXPECT_TRUE(prev_b->detectCycle(++nonce));
-        EXPECT_TRUE(prev_a->prev->detectCycle(++nonce));
-        EXPECT_TRUE(prev_b->prev->detectCycle(++nonce));
-        EXPECT_TRUE(prev_a->prev->prev->detectCycle(++nonce));
-        EXPECT_TRUE(prev_b->prev->prev->detectCycle(++nonce));
+        visited.clear();
+        EXPECT_TRUE(prev_a->detectCycle(visited));
+        visited.clear();
+        EXPECT_TRUE(prev_b->detectCycle(visited));
+        visited.clear();
+        EXPECT_TRUE(prev_a->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_TRUE(prev_b->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_TRUE(prev_a->prev->prev->detectCycle(visited));
+        visited.clear();
+        EXPECT_TRUE(prev_b->prev->prev->detectCycle(visited));
     }
 }
 
@@ -807,23 +880,23 @@ TEST(path_sync, clear_paths) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-TEST(path_search, set_destination_checks) {
+TEST(path_search, reset_input_checks) {
     PathSearch path_search({"A"});
     Graph::NodePtr node(new Graph::Node{{0, 0}});
     // valid destination
-    EXPECT_EQ(path_search.setDestination({node}), PathSearch::SUCCESS);
+    EXPECT_EQ(path_search.reset({node}), PathSearch::SUCCESS);
     // passive destination
-    EXPECT_EQ(path_search.setDestination({}), PathSearch::SUCCESS);
+    EXPECT_EQ(path_search.reset({}), PathSearch::SUCCESS);
     // invalid destination
-    EXPECT_EQ(path_search.setDestination({nullptr}), PathSearch::DESTINATION_NODE_INVALID);
+    EXPECT_EQ(path_search.reset({nullptr}), PathSearch::DESTINATION_NODE_INVALID);
     // reject duplicate node
-    EXPECT_EQ(path_search.setDestination({node, node}), PathSearch::DESTINATION_NODE_DUPLICATED);
+    EXPECT_EQ(path_search.reset({node, node}), PathSearch::DESTINATION_NODE_DUPLICATED);
     // reject no parking
     node->state = Graph::Node::NO_PARKING;
-    EXPECT_EQ(path_search.setDestination({node}), PathSearch::DESTINATION_NODE_NO_PARKING);
+    EXPECT_EQ(path_search.reset({node}), PathSearch::DESTINATION_NODE_NO_PARKING);
 }
 
-TEST(path_search, iterate_search_checks) {
+TEST(path_search, iterate_input_checks) {
     PathSearch path_search({"A"});
     Graph::NodePtr node(new Graph::Node{{0, 0}});
     Path path = {{node}};
@@ -832,40 +905,37 @@ TEST(path_search, iterate_search_checks) {
     auto& config = path_search.editConfig();
 
     config.agent_id.clear();
-    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::CONFIG_AGENT_ID_EMPTY);
+    EXPECT_EQ(path_search.iterate(path), PathSearch::CONFIG_AGENT_ID_EMPTY);
     config.agent_id = "A";
 
     config.price_increment = 0;
-    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::CONFIG_PRICE_INCREMENT_NON_POSITIVE);
+    EXPECT_EQ(path_search.iterate(path), PathSearch::CONFIG_PRICE_INCREMENT_NON_POSITIVE);
     config.price_increment = 1;
 
     config.time_exchange_rate = 0;
-    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::CONFIG_TIME_EXCHANGE_RATE_NON_POSITIVE);
+    EXPECT_EQ(path_search.iterate(path), PathSearch::CONFIG_TIME_EXCHANGE_RATE_NON_POSITIVE);
     config.time_exchange_rate = 1;
 
     config.travel_time = nullptr;
-    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::CONFIG_TRAVEL_TIME_MISSING);
+    EXPECT_EQ(path_search.iterate(path), PathSearch::CONFIG_TRAVEL_TIME_MISSING);
     config.travel_time = PathSearch::travelDistance;
 
     // check source node
     path.clear();
-    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::SOURCE_NODE_NOT_PROVIDED);
+    EXPECT_EQ(path_search.iterate(path), PathSearch::SOURCE_NODE_NOT_PROVIDED);
     path.push_back({nullptr});
-    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::SOURCE_NODE_INVALID);
+    EXPECT_EQ(path_search.iterate(path), PathSearch::SOURCE_NODE_INVALID);
     path = {{node}};
     node->state = Graph::Node::DISABLED;
-    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::SOURCE_NODE_DISABLED);
+    EXPECT_EQ(path_search.iterate(path), PathSearch::SOURCE_NODE_DISABLED);
     node->state = Graph::Node::ENABLED;
     Auction::Bid* prev = nullptr;
     ASSERT_EQ(node->auction.insertBid("B", std::numeric_limits<float>::max(), 0, prev), Auction::SUCCESS);
-    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::SOURCE_NODE_OCCUPIED);
+    EXPECT_EQ(path_search.iterate(path), PathSearch::SOURCE_NODE_OCCUPIED);
     ASSERT_EQ(node->auction.removeBid("B", std::numeric_limits<float>::max()), Auction::SUCCESS);
     // check success
-    EXPECT_EQ(path_search.iterateSearch(path), PathSearch::SUCCESS);
+    EXPECT_EQ(path_search.iterate(path), PathSearch::SUCCESS);
 }
-
-Graph test_graph;
-std::vector<Graph::Nodes> test_nodes;
 
 TEST(path_search, make_test_graph) {
     /*
@@ -877,10 +947,9 @@ TEST(path_search, make_test_graph) {
         20-21-22-23-24-25-26-27-28-29
     */
     auto& rows = test_nodes;
-    rows.resize(3);
-    make_pathway(test_graph, rows[0], {0, 0}, {90, 0}, 10);
-    make_pathway(test_graph, rows[1], {0, 10}, {90, 10}, 10);
-    make_pathway(test_graph, rows[2], {0, 20}, {90, 20}, 10);
+    make_pathway(*test_graph, rows[0], {0, 0}, {90, 0}, 10);
+    make_pathway(*test_graph, rows[1], {0, 10}, {90, 10}, 10);
+    make_pathway(*test_graph, rows[2], {0, 20}, {90, 20}, 10);
     rows[0][0]->edges.push_back(rows[1][0]);
     rows[1][0]->edges.push_back(rows[0][0]);
     rows[1][0]->edges.push_back(rows[2][0]);
@@ -891,8 +960,8 @@ TEST(path_search, make_test_graph) {
 TEST(path_search, single_passive_path) {
     PathSearch path_search({"A"});
     // set all nodes as no parking execpt 1
-    for (auto& row : test_nodes) {
-        for (auto& node : row) {
+    for (int i = 0; i < 3; ++i) {
+        for (auto& node : test_nodes[i]) {
             node->state = Graph::Node::NO_PARKING;
         }
     }
@@ -902,7 +971,7 @@ TEST(path_search, single_passive_path) {
     // try to find a passive path to the single parkable node
     Path path = {{test_nodes[0][0]}};
     for (calls = 0; calls < 200; ++calls) {
-        auto error = path_search.iterateSearch(path);
+        auto error = path_search.iterate(path);
         if (error == PathSearch::SUCCESS) {
             break;
         }
@@ -914,7 +983,7 @@ TEST(path_search, single_passive_path) {
     // expect a second attempt to take less iterations via previously cached cost estimates
     path.resize(1);
     for (calls = 0; calls < 200; ++calls) {
-        auto error = path_search.iterateSearch(path);
+        auto error = path_search.iterate(path);
         if (error == PathSearch::SUCCESS) {
             break;
         }
@@ -926,7 +995,7 @@ TEST(path_search, single_passive_path) {
     // try from a different start location
     path = {{test_nodes[0][5]}};
     for (calls = 0; calls < 200; ++calls) {
-        auto error = path_search.iterateSearch(path);
+        auto error = path_search.iterate(path);
         if (error == PathSearch::SUCCESS) {
             break;
         }
@@ -936,8 +1005,8 @@ TEST(path_search, single_passive_path) {
     EXPECT_EQ(path.back().node, test_nodes[2][9]);
 
     // reset node states to enabled
-    for (auto& row : test_nodes) {
-        for (auto& node : row) {
+    for (int i = 0; i < 3; ++i) {
+        for (auto& node : test_nodes[i]) {
             node->state = Graph::Node::ENABLED;
         }
     }
@@ -946,8 +1015,8 @@ TEST(path_search, single_passive_path) {
 TEST(path_search, single_passive_path_iterations) {
     PathSearch path_search({"B"});
     // set all nodes as no parking execpt 1
-    for (auto& row : test_nodes) {
-        for (auto& node : row) {
+    for (int i = 0; i < 3; ++i) {
+        for (auto& node : test_nodes[i]) {
             node->state = Graph::Node::NO_PARKING;
         }
     }
@@ -955,23 +1024,23 @@ TEST(path_search, single_passive_path_iterations) {
 
     // find the only node that allows parking
     Path path = {{test_nodes[0][0]}};
-    ASSERT_EQ(path_search.iterateSearch(path, 400), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search.iterate(path, 400), PathSearch::SUCCESS);
     EXPECT_EQ(path.back().node, test_nodes[2][9]);
 
     // expect a second attempt to take less iterations via previously cached cost estimates
     path.resize(1);
-    ASSERT_EQ(path_search.iterateSearch(path, 20), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search.iterate(path, 20), PathSearch::SUCCESS);
     EXPECT_EQ(path.back().node, test_nodes[2][9]);
 
     // try from a different start location
     path = {{test_nodes[0][5]}};
-    ASSERT_EQ(path_search.iterateSearch(path, 100), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search.iterate(path, 100), PathSearch::SUCCESS);
     EXPECT_EQ(path.back().node, test_nodes[2][9]);
     // print_path(path);
 
     // reset node states to enabled
-    for (auto& row : test_nodes) {
-        for (auto& node : row) {
+    for (int i = 0; i < 3; ++i) {
+        for (auto& node : test_nodes[i]) {
             node->state = Graph::Node::ENABLED;
         }
     }
@@ -983,6 +1052,10 @@ TEST(path_search, single_passive_path_iterations) {
 // test back and forth path wait dependencies
 
 int main(int argc, char* argv[]) {
+    Graph graph;
+    Graph::Nodes rows[3];
+    test_graph = &graph;
+    test_nodes = rows;
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

@@ -7,7 +7,6 @@
 #include <boost/geometry/index/rtree.hpp>
 
 #include <memory>
-#include <vector>
 
 namespace decentralized_path_auction {
 

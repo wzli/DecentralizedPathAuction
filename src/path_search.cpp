@@ -24,11 +24,9 @@ PathSearch::Error PathSearch::Config::validate() const {
     return SUCCESS;
 }
 
-PathSearch::Error PathSearch::setDestination(Graph::Nodes nodes) {
-    // only reset cost estimates when new destinations are added
-    _cost_nonce += (nodes.empty() && !_dst_nodes.getNodes().empty()) ||
-                   std::any_of(nodes.begin(), nodes.end(),
-                           [this](const Graph::NodePtr& node) { return !_dst_nodes.containsNode(node); });
+PathSearch::Error PathSearch::reset(Graph::Nodes nodes) {
+    // reset cost estimates
+    _cost_estimates.clear();
     // reset destination nodes
     _dst_nodes.detachNodes();
     for (auto& node : nodes) {
@@ -46,7 +44,7 @@ PathSearch::Error PathSearch::setDestination(Graph::Nodes nodes) {
     return SUCCESS;
 }
 
-PathSearch::Error PathSearch::iterateSearch(Path& path, size_t iterations) const {
+PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     // check configs
     if (Error config_error = _config.validate()) {
         return config_error;
@@ -77,6 +75,8 @@ PathSearch::Error PathSearch::iterateSearch(Path& path, size_t iterations) const
         path.resize(1);
         return SOURCE_NODE_OCCUPIED;
     }
+    // allocate cost lookup
+    _cost_estimates.resize(DenseId<Auction::Bid>::count());
     size_t original_path_size = path.size();
     // truncate visits in path that are invalid (node got deleted/disabled or bid got removed)
     path.erase(std::find_if(path.begin() + 1, path.end(),
@@ -108,16 +108,17 @@ PathSearch::Error PathSearch::iterateSearch(Path& path, size_t iterations) const
     return ITERATIONS_REACHED;
 }
 
-float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Path& path) const {
+float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Path& path) {
     auto& prev_node = &visit == &path.front() ? nullptr : (&visit - 1)->node;
     float min_cost = std::numeric_limits<float>::max();
     min_cost_visit = {nullptr};
     // reset cycle detection
-    ++_cycle_nonce;
+    _cycle_visits.clear();
     for (auto& prev_visit : path) {
-        auto& bid = prev_visit.node->auction.getBids().find(visit.base_price)->second;
-        bid.cycle_nonce = _cycle_nonce;
-        bid.cycle_flag = true;
+        auto idx = 2 * prev_visit.node->auction.getBids().find(visit.base_price)->second.id;
+        _cycle_visits.resize(std::max(_cycle_visits.size(), idx + 2));
+        _cycle_visits[idx] = true;
+        _cycle_visits[idx + 1] = true;
         if (&prev_visit == &visit) {
             break;
         }
@@ -157,7 +158,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
                     continue;
                 }
                 // skip the bid if it causes cyclic dependencies
-                if (bid.detectCycle(_cycle_nonce, _config.agent_id)) {
+                if (bid.detectCycle(_cycle_visits, _config.agent_id)) {
                     debug_puts("  no has cycle");
                     continue;
                 }
@@ -189,7 +190,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
     return min_cost;
 }
 
-bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) const {
+bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     assert(visit_index < path.size());
     auto& visit = path[visit_index];
     // remove edges to deleted nodes
@@ -204,9 +205,10 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) const {
     }
     // update cost estimate of current visit to the min cost of adjacent visits
     auto& bid = visit.node->auction.getBids().find(visit.base_price)->second;
-    bool cost_increased = min_cost > bid.cost_estimate;
-    bid.cost_estimate = min_cost;
-    bid.cost_nonce = _cost_nonce;
+    auto& [cost_bid, cost_estimate] = _cost_estimates[bid.id];
+    bool cost_increased = min_cost > cost_estimate;
+    cost_estimate = min_cost;
+    cost_bid = &bid;
     // truncate rest of path and proceed to previous visit if current visit is a dead end
     if (!min_cost_visit.node) {
         path.resize(visit_index + 1);
@@ -233,20 +235,20 @@ bool PathSearch::checkTermination(const Visit& visit) const {
            _dst_nodes.containsNode(visit.node);
 }
 
-float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid) const {
-    // reset cost estimate when nonce changes
-    if (bid.cost_nonce != _cost_nonce) {
-        bid.cost_nonce = _cost_nonce;
+float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid) {
+    auto& [cost_bid, cost_estimate] = _cost_estimates[bid.id];
+    if (cost_bid != &bid) {
+        cost_bid = &bid;
         // initialize cost proportional to travel time from node to destination
         if (_dst_nodes.getNodes().empty()) {
-            bid.cost_estimate = 0;
+            cost_estimate = 0;
         } else {
             assert(Graph::validateNode(node));
             auto nearest_goal = _dst_nodes.findNearestNode(node->position, Graph::Node::ENABLED);
-            bid.cost_estimate = _config.travel_time(nullptr, node, nearest_goal) * _config.time_exchange_rate;
+            cost_estimate = _config.travel_time(nullptr, node, nearest_goal) * _config.time_exchange_rate;
         }
     }
-    return bid.cost_estimate;
+    return cost_estimate;
 }
 
 float PathSearch::determinePrice(float base_price, float price_limit, float cost, float alternative_cost) const {

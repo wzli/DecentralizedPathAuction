@@ -2,6 +2,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 namespace decentralized_path_auction {
 
@@ -18,28 +19,10 @@ public:
         DURATION_NEGATIVE,
     };
 
-    struct Bid {
-        std::string bidder;
-        float duration = 0;
-        // links to other bids
-        Bid* prev = nullptr;
-        Bid* next = nullptr;
-        Bid* lower = nullptr;
-        // search cache
-        mutable size_t cost_nonce = 0;
-        mutable size_t cycle_nonce = 0;
-        mutable float cost_estimate = 0;
-        mutable bool cycle_flag = false;
-
-        // recursive functions
-        bool detectCycle(size_t nonce, const std::string& exclude_bidder = "") const;
-        float totalDuration() const { return duration + (prev ? prev->totalDuration() : 0); };
-    };
-
+    struct Bid;
     using Bids = std::map<float, Bid>;
 
-    Auction(float start_price = 0)
-            : _bids({{start_price, {""}}}) {}
+    Auction(float start_price = 0);
     ~Auction();
 
     // non-copyable and non-movable
@@ -51,12 +34,50 @@ public:
     void clearBids(float start_price) { this->~Auction(), new (this) Auction(start_price); }
 
     const Bids& getBids() const { return _bids; }
-    float getStartPrice() const { return _bids.begin()->first; }
     Bids::const_iterator getHigherBid(float price, const std::string& exclude_bidder = "") const;
     Bids::const_iterator getHighestBid(const std::string& exclude_bidder = "") const;
 
 private:
     Bids _bids;
+};
+
+template <class T>
+class DenseId {
+public:
+    DenseId()
+            : id(_free_ids.back()) {
+        _free_ids.pop_back();
+        if (_free_ids.empty()) {
+            _free_ids.push_back(id + 1);
+        }
+    }
+    DenseId(const DenseId&)
+            : DenseId() {}
+    DenseId& operator=(const DenseId&) = delete;
+    ~DenseId() { _free_ids.push_back(id); }
+
+    operator size_t() const { return id; }
+    static size_t count() { return _free_ids.front(); }
+
+    const size_t id;
+
+private:
+    inline static std::vector<size_t> _free_ids = {0};
+};
+
+struct Auction::Bid {
+    std::string bidder;
+    float duration = 0;
+    // maintain unique id for every bid
+    DenseId<Bid> id = {};
+    // links to other bids
+    Bid* prev = nullptr;
+    Bid* next = nullptr;
+    Bid* lower = nullptr;
+
+    // recursive functions
+    bool detectCycle(std::vector<bool>& visited, const std::string& exclude_bidder = "") const;
+    float totalDuration() const { return duration + (prev ? prev->totalDuration() : 0); };
 };
 
 }  // namespace decentralized_path_auction
