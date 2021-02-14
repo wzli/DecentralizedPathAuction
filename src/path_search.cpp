@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cassert>
 
-#define DEBUG_PRINTF(...) // printf(__VA_ARGS__)
+#define DEBUG_PRINTF(...)  // printf(__VA_ARGS__)
 
 namespace decentralized_path_auction {
 
@@ -233,19 +233,20 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     bool cost_increased = min_cost > cost_estimate;
     cost_estimate = min_cost;
     cost_bid = &bid;
-    // truncate rest of path and proceed to previous visit if current visit is a dead end
     if (!min_cost_visit.node) {
+        // truncate rest of path if min cost visit is a dead end
         path.resize(visit_index + 1);
-    } else if (&visit == &path.back() || (&visit + 1)->node != min_cost_visit.node ||
-               (&visit + 1)->base_price != min_cost_visit.base_price) {
-        // if next visit in path is not the min cost visit found
-        // truncate path upto current visit and append min cost visit to path
-        path.resize(visit_index + 1);
+    } else if (&visit == &path.back()) {
+        // append min cost visit if already at the back of path
         path.push_back(std::move(min_cost_visit));
     } else {
-        // updated existing visit
-        (&visit + 1)->time = min_cost_visit.time;
-        (&visit + 1)->price = min_cost_visit.price;
+        // truncate path if min cost visit is different from next visit in path
+        auto& next_visit = path[visit_index + 1];
+        if (next_visit.node != min_cost_visit.node || next_visit.base_price != min_cost_visit.base_price) {
+            path.resize(visit_index + 2);
+        }
+        // set next visit to the min cost visit found
+        next_visit = std::move(min_cost_visit);
     }
     // WARNING: visit ref variable is invalidated at this point after modifying path vector
     return cost_increased;
