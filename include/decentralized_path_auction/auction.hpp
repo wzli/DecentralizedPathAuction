@@ -51,6 +51,8 @@ public:
             _free_ids.push_back(id + 1);
         }
     }
+    // copy constructor is a hack to allow aggregate construction
+    // but copies have different ID since they must be unique for every instance
     DenseId(const DenseId&)
             : DenseId() {}
     DenseId& operator=(const DenseId&) = delete;

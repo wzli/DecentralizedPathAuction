@@ -8,6 +8,10 @@
 
 namespace decentralized_path_auction {
 
+const Auction::Bid& baseBid(const Visit& visit) {
+    return visit.node->auction.getBids().find(visit.base_price)->second;
+}
+
 PathSearch::Error PathSearch::Config::validate() const {
     if (agent_id.empty()) {
         return CONFIG_AGENT_ID_EMPTY;
@@ -131,7 +135,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
     // reset cycle detection
     _cycle_visits.clear();
     for (auto& prev_visit : path) {
-        auto idx = 2 * prev_visit.node->auction.getBids().find(visit.base_price)->second.id;
+        auto idx = 2 * baseBid(prev_visit).id;
         _cycle_visits.resize(std::max(_cycle_visits.size(), idx + 2));
         _cycle_visits[idx] = true;
         _cycle_visits[idx + 1] = true;
@@ -154,7 +158,6 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
         float wait_duration = 0;
         // iterate in reverse order (highest to lowest) through each bid in the auction of the adjacent node
         auto& adj_bids = adj_node->auction.getBids();
-        float prev_base_price = prev_node == adj_node ? (&visit - 1)->base_price : adj_bids.begin()->first - 1;
         for (auto adj_bid = adj_bids.rbegin(); adj_bid != adj_bids.rend(); ++adj_bid) {
             auto& [bid_price, bid] = *adj_bid;
             // skip bids that belong to this agent
@@ -166,18 +169,15 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
             if (adj_bid != adj_bids.rbegin()) {
                 wait_duration = std::max(wait_duration, std::prev(adj_bid)->second.totalDuration());
             }
-            // allow cost estimate to consider links back to previous visit
-            if (bid_price != prev_base_price) {
-                // skip bid if it requires waiting but current node doesn't allow it
-                if (visit.node->state == Graph::Node::NO_STOPPING && wait_duration > earliest_arrival_time) {
-                    debug_puts("  no stopping");
-                    continue;
-                }
-                // skip the bid if it causes cyclic dependencies
-                if (bid.detectCycle(_cycle_visits, _config.agent_id)) {
-                    debug_puts("  no has cycle");
-                    continue;
-                }
+            // skip bid if it requires waiting but current node doesn't allow it
+            if (visit.node->state == Graph::Node::NO_STOPPING && wait_duration > earliest_arrival_time) {
+                debug_puts("  no stopping");
+                continue;
+            }
+            // skip the bid if it causes cyclic dependencies
+            if (bid.detectCycle(_cycle_visits, _config.agent_id)) {
+                debug_puts("  no has cycle");
+                continue;
             }
             // arrival_time factors in how long you have to wait
             float arrival_time = std::max(wait_duration, earliest_arrival_time);
@@ -215,12 +215,22 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     // find min cost visit
     Visit min_cost_visit;
     float min_cost = findMinCostVisit(min_cost_visit, visit, path);
+    // consider edges back to previous visit into min cost calculation because they would otherwise
+    // be filtered out in the cycle detection. Useful so that when source node changes the cost estimates
+    // from previous iterations won't predispose the back edge as banned
+    if (visit_index > 0 && std::find(edges.begin(), edges.end(), path[visit_index - 1].node) != edges.end()) {
+        auto& prev_visit = path[visit_index - 1];
+        min_cost = std::min(min_cost,
+                getCostEstimate(prev_visit.node, baseBid(prev_visit)) +
+                        std::min(visit.base_price, prev_visit.base_price) +
+                        (_config.travel_time(nullptr, visit.node, prev_visit.node) * _config.time_exchange_rate));
+    }
     if (min_cost_visit.node) {
         debug_printf("min [%f %f] base %f cost %f\r\n", min_cost_visit.node->position.x(),
                 min_cost_visit.node->position.y(), min_cost_visit.base_price, min_cost);
     }
-    // update cost estimate of current visit to the min cost of adjacent visits
-    auto& bid = visit.node->auction.getBids().find(visit.base_price)->second;
+    // update cost estimate of current visit to the min cost of all adjacent visits
+    auto& bid = baseBid(visit);
     auto& [cost_bid, cost_estimate] = _cost_estimates[bid.id];
     bool cost_increased = min_cost > cost_estimate;
     cost_estimate = min_cost;
