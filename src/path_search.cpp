@@ -108,6 +108,22 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     return ITERATIONS_REACHED;
 }
 
+float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid) {
+    auto& [cost_bid, cost_estimate] = _cost_estimates[bid.id];
+    if (cost_bid != &bid) {
+        cost_bid = &bid;
+        // initialize cost proportional to travel time from node to destination
+        if (_dst_nodes.getNodes().empty()) {
+            cost_estimate = 0;
+        } else {
+            assert(Graph::validateNode(node));
+            auto nearest_goal = _dst_nodes.findNearestNode(node->position, Graph::Node::ENABLED);
+            cost_estimate = _config.travel_time(nullptr, node, nearest_goal) * _config.time_exchange_rate;
+        }
+    }
+    return cost_estimate;
+}
+
 float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Path& path) {
     auto& prev_node = &visit == &path.front() ? nullptr : (&visit - 1)->node;
     float min_cost = std::numeric_limits<float>::max();
@@ -233,22 +249,6 @@ bool PathSearch::checkTermination(const Visit& visit) const {
                    visit.node->auction.getHighestBid(_config.agent_id)->second.bidder.empty()) ||
            // termination condition for regular destinations
            _dst_nodes.containsNode(visit.node);
-}
-
-float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid) {
-    auto& [cost_bid, cost_estimate] = _cost_estimates[bid.id];
-    if (cost_bid != &bid) {
-        cost_bid = &bid;
-        // initialize cost proportional to travel time from node to destination
-        if (_dst_nodes.getNodes().empty()) {
-            cost_estimate = 0;
-        } else {
-            assert(Graph::validateNode(node));
-            auto nearest_goal = _dst_nodes.findNearestNode(node->position, Graph::Node::ENABLED);
-            cost_estimate = _config.travel_time(nullptr, node, nearest_goal) * _config.time_exchange_rate;
-        }
-    }
-    return cost_estimate;
 }
 
 float PathSearch::determinePrice(float base_price, float price_limit, float cost, float alternative_cost) const {
