@@ -112,6 +112,16 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     return ITERATIONS_REACHED;
 }
 
+void PathSearch::resetCycleVisits(size_t visit_index, const Path& path) {
+    _cycle_visits.clear();
+    for (; visit_index < path.size(); --visit_index) {
+        auto idx = 2 * baseBid(path[visit_index]).id;
+        _cycle_visits.resize(std::max(_cycle_visits.size(), idx + 2));
+        _cycle_visits[idx] = true;
+        _cycle_visits[idx + 1] = true;
+    }
+}
+
 float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid) {
     auto& [cost_bid, cost_estimate] = _cost_estimates[bid.id];
     if (cost_bid != &bid) {
@@ -128,21 +138,9 @@ float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid
     return cost_estimate;
 }
 
-float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Path& path) {
-    auto& prev_node = &visit == &path.front() ? nullptr : (&visit - 1)->node;
+float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Graph::NodePtr& prev_node) {
     float min_cost = std::numeric_limits<float>::max();
     min_cost_visit = {nullptr};
-    // reset cycle detection
-    _cycle_visits.clear();
-    for (auto& prev_visit : path) {
-        auto idx = 2 * baseBid(prev_visit).id;
-        _cycle_visits.resize(std::max(_cycle_visits.size(), idx + 2));
-        _cycle_visits[idx] = true;
-        _cycle_visits[idx + 1] = true;
-        if (&prev_visit == &visit) {
-            break;
-        }
-    }
     // loop over each adjacent node
     for (auto& adj_node : visit.node->edges) {
         debug_printf("[%f %f] -> [%f %f] \r\n", visit.node->position.x(), visit.node->position.y(),
@@ -159,15 +157,15 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
         // iterate in reverse order (highest to lowest) through each bid in the auction of the adjacent node
         auto& adj_bids = adj_node->auction.getBids();
         for (auto adj_bid = adj_bids.rbegin(); adj_bid != adj_bids.rend(); ++adj_bid) {
+            // wait duration is atleast as long as the total duration of next higher bid
+            if (adj_bid != adj_bids.rbegin() && std::prev(adj_bid)->second.bidder != _config.agent_id) {
+                wait_duration = std::max(wait_duration, std::prev(adj_bid)->second.totalDuration());
+            }
             auto& [bid_price, bid] = *adj_bid;
             // skip bids that belong to this agent
             if (bid.bidder == _config.agent_id) {
                 debug_puts("  this bidder");
                 continue;
-            }
-            // wait duration is atleast as long as the next total duration of next higher bid
-            if (adj_bid != adj_bids.rbegin()) {
-                wait_duration = std::max(wait_duration, std::prev(adj_bid)->second.totalDuration());
             }
             // skip bid if it requires waiting but current node doesn't allow it
             if (visit.node->state == Graph::Node::NO_STOPPING && wait_duration > earliest_arrival_time) {
@@ -212,18 +210,20 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     // remove edges to deleted nodes
     auto& edges = visit.node->edges;
     edges.erase(std::remove_if(edges.begin(), edges.end(), std::not_fn(Graph::validateNode)), edges.end());
+    // reset cycle detection
+    resetCycleVisits(visit_index, path);
     // find min cost visit
     Visit min_cost_visit;
-    float min_cost = findMinCostVisit(min_cost_visit, visit, path);
+    const Graph::NodePtr& prev_node = visit_index > 0 ? path[visit_index - 1].node : nullptr;
+    float min_cost = findMinCostVisit(min_cost_visit, visit, prev_node);
     // consider edges back to previous visit into min cost calculation because they would otherwise
     // be filtered out in the cycle detection. Useful so that when source node changes the cost estimates
     // from previous iterations won't predispose the back edge as banned
-    if (visit_index > 0 && std::find(edges.begin(), edges.end(), path[visit_index - 1].node) != edges.end()) {
-        auto& prev_visit = path[visit_index - 1];
-        min_cost = std::min(min_cost,
-                getCostEstimate(prev_visit.node, baseBid(prev_visit)) +
-                        std::min(visit.base_price, prev_visit.base_price) +
-                        (_config.travel_time(nullptr, visit.node, prev_visit.node) * _config.time_exchange_rate));
+    if (prev_node && std::find(edges.begin(), edges.end(), prev_node) != edges.end()) {
+        min_cost = std::min(
+                min_cost, getCostEstimate(prev_node, baseBid(path[visit_index - 1])) +
+                                  std::min(visit.base_price, path[visit_index - 1].base_price) +
+                                  (_config.travel_time(nullptr, visit.node, prev_node) * _config.time_exchange_rate));
     }
     if (min_cost_visit.node) {
         debug_printf("min [%f %f] base %f cost %f\r\n", min_cost_visit.node->position.x(),
