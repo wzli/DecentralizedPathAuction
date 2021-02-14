@@ -3,8 +3,7 @@
 #include <algorithm>
 #include <cassert>
 
-#define debug_printf(...)  // printf(__VA_ARGS__)
-#define debug_puts(x)      // puts(x)
+#define DEBUG_PRINTF(...) // printf(__VA_ARGS__)
 
 namespace decentralized_path_auction {
 
@@ -143,11 +142,10 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
     min_cost_visit = {nullptr};
     // loop over each adjacent node
     for (auto& adj_node : visit.node->edges) {
-        debug_printf("[%f %f] -> [%f %f] \r\n", visit.node->position.x(), visit.node->position.y(),
-                adj_node->position.x(), adj_node->position.y());
+        DEBUG_PRINTF("->[%f %f] \r\n", adj_node->position.x(), adj_node->position.y());
         // skip disabled nodes
         if (adj_node->state >= Graph::Node::DISABLED) {
-            debug_puts("disabled");
+            DEBUG_PRINTF("Node Disabled\r\n");
             continue;
         }
         // calculate the expected time to arrive at the adjacent node (without wait)
@@ -162,19 +160,20 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
                 wait_duration = std::max(wait_duration, std::prev(adj_bid)->second.totalDuration());
             }
             auto& [bid_price, bid] = *adj_bid;
+            DEBUG_PRINTF("    ID %lu Base %f ", bid.id.id, bid_price);
             // skip bids that belong to this agent
             if (bid.bidder == _config.agent_id) {
-                debug_puts("  this bidder");
+                DEBUG_PRINTF("Skipped Self\r\n");
                 continue;
             }
             // skip bid if it requires waiting but current node doesn't allow it
             if (visit.node->state == Graph::Node::NO_STOPPING && wait_duration > earliest_arrival_time) {
-                debug_puts("  no stopping");
+                DEBUG_PRINTF("No Stopping\r\n");
                 continue;
             }
             // skip the bid if it causes cyclic dependencies
             if (bid.detectCycle(_cycle_visits, _config.agent_id)) {
-                debug_puts("  no has cycle");
+                DEBUG_PRINTF("Cycle Detected\r\n");
                 continue;
             }
             // arrival_time factors in how long you have to wait
@@ -184,7 +183,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
             assert(time_cost >= 0);
             // total cost of visit aggregates time cost, price of bid, and estimated cost from adj node to dst
             float cost_estimate = time_cost + bid_price + getCostEstimate(adj_node, bid);
-            debug_printf("  base %f cost %f\r\n", bid_price, cost_estimate);
+            DEBUG_PRINTF("Cost %f\r\n", cost_estimate);
             // keep track of lowest cost visit found
             if (cost_estimate < min_cost) {
                 std::swap(cost_estimate, min_cost);
@@ -215,20 +214,19 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     // find min cost visit
     Visit min_cost_visit;
     const Graph::NodePtr& prev_node = visit_index > 0 ? path[visit_index - 1].node : nullptr;
+    DEBUG_PRINTF("[%f %f]\r\n", visit.node->position.x(), visit.node->position.y());
     float min_cost = findMinCostVisit(min_cost_visit, visit, prev_node);
     // consider edges back to previous visit into min cost calculation because they would otherwise
     // be filtered out in the cycle detection. Useful so that when source node changes the cost estimates
     // from previous iterations won't predispose the back edge as banned
     if (prev_node && std::find(edges.begin(), edges.end(), prev_node) != edges.end()) {
-        min_cost = std::min(
-                min_cost, getCostEstimate(prev_node, baseBid(path[visit_index - 1])) +
-                                  std::min(visit.base_price, path[visit_index - 1].base_price) +
-                                  (_config.travel_time(nullptr, visit.node, prev_node) * _config.time_exchange_rate));
+        auto back_cost = getCostEstimate(prev_node, baseBid(path[visit_index - 1])) +
+                         std::min(visit.base_price, path[visit_index - 1].base_price) +
+                         (_config.travel_time(nullptr, visit.node, prev_node) * _config.time_exchange_rate);
+        min_cost = std::min(min_cost, back_cost);
+        DEBUG_PRINTF("  Back Cost %f\r\n", back_cost);
     }
-    if (min_cost_visit.node) {
-        debug_printf("min [%f %f] base %f cost %f\r\n", min_cost_visit.node->position.x(),
-                min_cost_visit.node->position.y(), min_cost_visit.base_price, min_cost);
-    }
+    DEBUG_PRINTF("Min ID %lu Cost %f\r\n\r\n", min_cost_visit.node ? baseBid(min_cost_visit).id.id : -1, min_cost);
     // update cost estimate of current visit to the min cost of all adjacent visits
     auto& bid = baseBid(visit);
     auto& [cost_bid, cost_estimate] = _cost_estimates[bid.id];

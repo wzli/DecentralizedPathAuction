@@ -8,7 +8,7 @@ namespace decentralized_path_auction {
 class PathSearch {
 public:
     enum Error {
-        SUCCESS = 0,
+        SUCCESS,
         ITERATIONS_REACHED,
         PATH_EXTENDED,
         PATH_CONTRACTED,
@@ -40,10 +40,10 @@ public:
     PathSearch(Config config)
             : _config(std::move(config)) {}
 
+    Config& editConfig() { return _config; }
+
     Error reset(Graph::Nodes nodes);
     Error iterate(Path& path, size_t iterations = 0);
-
-    Config& editConfig() { return _config; }
 
     static float travelDistance(const Graph::NodePtr&, const Graph::NodePtr& cur, const Graph::NodePtr& next) {
         return bg::distance(cur->position, next->position);
