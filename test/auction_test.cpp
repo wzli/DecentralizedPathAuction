@@ -3,7 +3,7 @@
 
 using namespace decentralized_path_auction;
 
-void check_auction_links(const Auction::Bids& bids) {
+static void check_auction_links(const Auction::Bids& bids) {
     EXPECT_EQ(bids.rbegin()->second.next, nullptr);
     EXPECT_EQ(bids.begin()->second.lower, nullptr);
     EXPECT_EQ(bids.begin()->second.next, nullptr);

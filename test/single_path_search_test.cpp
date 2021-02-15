@@ -101,6 +101,43 @@ TEST(path_search, single_path) {
     }
     EXPECT_EQ(calls, 46);
     EXPECT_EQ(path.back().node, nodes[2][5]);
+
+    // expect a second attempt to take less iterations via previously cached cost estimates
+    path.resize(1);
+    for (calls = 0; calls < 200; ++calls) {
+        auto error = path_search.iterate(path);
+        if (error == PathSearch::SUCCESS) {
+            break;
+        }
+        EXPECT_TRUE(error == PathSearch::PATH_EXTENDED || error == PathSearch::PATH_CONTRACTED);
+    }
+    EXPECT_EQ(calls, 12);
+    EXPECT_EQ(path.back().node, nodes[2][5]);
+
+    // try from a different start location
+    path = {{nodes[0][9]}};
+    for (calls = 0; calls < 200; ++calls) {
+        auto error = path_search.iterate(path);
+        if (error == PathSearch::SUCCESS) {
+            break;
+        }
+        EXPECT_TRUE(error == PathSearch::PATH_EXTENDED || error == PathSearch::PATH_CONTRACTED);
+    }
+    EXPECT_EQ(calls, 16);
+    EXPECT_EQ(path.back().node, nodes[2][5]);
+
+    // try a source and different destination
+    ASSERT_EQ(path_search.reset({nodes[1][5]}), PathSearch::SUCCESS);
+    path = {{nodes[2][9]}};
+    for (calls = 0; calls < 200; ++calls) {
+        auto error = path_search.iterate(path);
+        if (error == PathSearch::SUCCESS) {
+            break;
+        }
+        EXPECT_TRUE(error == PathSearch::PATH_EXTENDED || error == PathSearch::PATH_CONTRACTED);
+    }
+    EXPECT_EQ(calls, 15);
+    EXPECT_EQ(path.back().node, nodes[1][5]);
 }
 
 TEST(path_search, single_passive_path) {
@@ -186,7 +223,6 @@ TEST(path_search, single_passive_path_iterations) {
     path = {{nodes[0][5]}};
     ASSERT_EQ(path_search.iterate(path, 100), PathSearch::SUCCESS);
     EXPECT_EQ(path.back().node, nodes[2][9]);
-    // print_path(path);
 
     // reset node states to enabled
     for (int i = 0; i < 3; ++i) {
