@@ -112,10 +112,11 @@ bool Auction::Bid::detectCycle(std::vector<bool>& visited, const std::string& ex
     visited[idx + 1] = true;
     visited[idx] = true;
     // detect cycle for next bids in time (first by auction, then by path)
-    return visited[idx] = (prev && prev->lower && prev->lower->detectCycle(visited, exclude_bidder)) ||
-                          (lower && lower->detectCycle(visited, exclude_bidder)) ||
+    return visited[idx] = (lower && lower->detectCycle(visited, exclude_bidder)) ||
                           // skip the current bid's path if the bidder is excluded
-                          (bidder != exclude_bidder && next && next->detectCycle(visited, exclude_bidder));
+                          (bidder != exclude_bidder &&
+                                  ((prev && prev->lower && prev->lower->detectCycle(visited, exclude_bidder)) ||
+                                          (next && next->detectCycle(visited, exclude_bidder))));
 }
 
 }  // namespace decentralized_path_auction
