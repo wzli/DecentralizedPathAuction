@@ -39,6 +39,7 @@ public:
 
     PathSearch(Config config)
             : _config(std::move(config)) {}
+    ~PathSearch() { _dst_nodes.detachNodes(); }
 
     Config& editConfig() { return _config; }
 

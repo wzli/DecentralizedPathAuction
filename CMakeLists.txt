@@ -21,6 +21,11 @@ find_package(GTest)
 add_subdirectory("/usr/src/gtest" ${CMAKE_BINARY_DIR}/gtest)
 
 add_executable(test_app
+    test/auction_test.cpp
+    test/bid_chain_test.cpp
+    test/graph_test.cpp
+    test/path_sync_test.cpp
+    test/single_path_search_test.cpp
     test/test.cpp
 )
 
