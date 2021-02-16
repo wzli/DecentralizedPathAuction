@@ -111,16 +111,6 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     return ITERATIONS_REACHED;
 }
 
-void PathSearch::resetCycleVisits(size_t visit_index, const Path& path) {
-    _cycle_visits.clear();
-    for (; visit_index < path.size(); --visit_index) {
-        auto idx = 2 * baseBid(path[visit_index]).id;
-        _cycle_visits.resize(std::max(_cycle_visits.size(), idx + 2));
-        _cycle_visits[idx] = true;
-        _cycle_visits[idx + 1] = true;
-    }
-}
-
 float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid) {
     auto& [cost_bid, cost_estimate] = _cost_estimates[bid.id];
     if (cost_bid != &bid) {
@@ -137,7 +127,8 @@ float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid
     return cost_estimate;
 }
 
-float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Graph::NodePtr& prev_node) {
+float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Visit& start_visit) {
+    const Graph::NodePtr& prev_node = &visit == &start_visit ? nullptr : (&visit - 1)->node;
     float min_cost = std::numeric_limits<float>::max();
     min_cost_visit = {nullptr};
     // loop over each adjacent node
@@ -172,7 +163,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
                 continue;
             }
             // skip the bid if it causes cyclic dependencies
-            if (bid.detectCycle(_cycle_visits, _config.agent_id)) {
+            if (detectCycle(bid, visit, start_visit)) {
                 DEBUG_PRINTF("Cycle Detected\r\n");
                 continue;
             }
@@ -212,28 +203,17 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     // remove edges to deleted nodes
     auto& edges = visit.node->edges;
     edges.erase(std::remove_if(edges.begin(), edges.end(), std::not_fn(Graph::validateNode)), edges.end());
-    // reset cycle detection
-    resetCycleVisits(visit_index, path);
+    DEBUG_PRINTF("[%f %f] ID %lu Base %f\r\n", visit.node->position.x(), visit.node->position.y(), baseBid(visit).id.id,
+            visit.base_price);
     // find min cost visit
     Visit min_cost_visit;
-    const Graph::NodePtr& prev_node = visit_index > 0 ? path[visit_index - 1].node : nullptr;
-    DEBUG_PRINTF("[%f %f]\r\n", visit.node->position.x(), visit.node->position.y());
-    float min_cost = findMinCostVisit(min_cost_visit, visit, prev_node);
-    // consider edges back to previous visit into min cost calculation because they would otherwise
-    // be filtered out in the cycle detection. Useful so that when source node changes the cost estimates
-    // from previous iterations won't predispose the back edge as banned
-    if (prev_node && std::find(edges.begin(), edges.end(), prev_node) != edges.end()) {
-        auto back_cost = getCostEstimate(prev_node, baseBid(path[visit_index - 1])) +
-                         std::min(visit.base_price, path[visit_index - 1].base_price) +
-                         (_config.travel_time(nullptr, visit.node, prev_node) * _config.time_exchange_rate);
-        min_cost = std::min(min_cost, back_cost);
-        DEBUG_PRINTF("  Back Cost %f\r\n", back_cost);
-    }
-    DEBUG_PRINTF("Min ID %lu Cost %f\r\n\r\n", min_cost_visit.node ? baseBid(min_cost_visit).id.id : -1, min_cost);
+    float min_cost = findMinCostVisit(min_cost_visit, visit, path.front());
     // update cost estimate of current visit to the min cost of all adjacent visits
     auto& bid = baseBid(visit);
     auto& [cost_bid, cost_estimate] = _cost_estimates[bid.id];
     bool cost_increased = min_cost > cost_estimate;
+    DEBUG_PRINTF("Min ID %lu Base %f Cost %f Prev %f\r\n\r\n", min_cost_visit.node ? baseBid(min_cost_visit).id.id : -1,
+            min_cost_visit.base_price, min_cost, cost_estimate);
     cost_estimate = min_cost;
     cost_bid = &bid;
     if (!min_cost_visit.node) {
@@ -253,6 +233,23 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     }
     // WARNING: visit ref variable is invalidated at this point after modifying path vector
     return cost_increased;
+}
+
+bool PathSearch::detectCycle(const Auction::Bid& bid, const Visit& visit, const Visit& start_visit) {
+    _cycle_visits.clear();
+    for (const Visit* visit_ptr = &start_visit; visit_ptr != &visit; ++visit_ptr) {
+        auto idx = 2 * baseBid(*visit_ptr).id;
+        _cycle_visits.resize(std::max(_cycle_visits.size(), idx + 2));
+        _cycle_visits[idx] = true;
+    }
+    auto& base_bid = baseBid(visit);
+    _cycle_visits.resize(std::max({_cycle_visits.size(), (bid.id + 1) * 2, (base_bid.id + 1) * 2}));
+    _cycle_visits[2 * bid.id] = true;
+    if (base_bid.detectCycle(_cycle_visits, _config.agent_id)) {
+        return true;
+    }
+    _cycle_visits[2 * bid.id] = false;
+    return bid.detectCycle(_cycle_visits, _config.agent_id);
 }
 
 bool PathSearch::checkTermination(const Visit& visit) const {

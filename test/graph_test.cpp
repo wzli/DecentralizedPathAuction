@@ -52,14 +52,6 @@ bool save_graph(const Graph& graph, const char* file) {
     return !fclose(fp);
 }
 
-void print_path(const Path& path) {
-    for (auto& visit : path) {
-        printf("{[%.2f %.2f], t: %.2f, p: %.2f, b: %.2f}\r\n", visit.node->position.x(), visit.node->position.y(),
-                visit.time, visit.price, visit.base_price);
-    }
-    puts("");
-}
-
 TEST(graph, destruct_or_clear_nodes) {
     Graph::Nodes nodes;
     {

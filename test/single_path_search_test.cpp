@@ -6,7 +6,7 @@ using namespace decentralized_path_auction;
 void make_pathway(Graph& graph, Graph::Nodes& pathway, Point2D a, Point2D b, size_t n,
         Graph::Node::State state = Graph::Node::ENABLED);
 
-static std::vector<Graph::Nodes> make_test_graph(Graph& graph) {
+std::vector<Graph::Nodes> make_test_graph(Graph& graph) {
     /*
         make the graph below:
         00-01-02-03-04-05-06-07-08-09

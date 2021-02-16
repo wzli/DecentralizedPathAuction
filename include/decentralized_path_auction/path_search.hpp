@@ -51,10 +51,10 @@ public:
     }
 
 private:
-    void resetCycleVisits(size_t visit_index, const Path& path);
     float getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid);
-    float findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Graph::NodePtr& prev_node);
+    float findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Visit& start_visit);
     bool appendMinCostVisit(size_t visit_index, Path& path);
+    bool detectCycle(const Auction::Bid& bid, const Visit& visit, const Visit& start_visit);
     bool checkTermination(const Visit& visit) const;
     float determinePrice(float base_price, float price_limit, float cost, float alternative_cost) const;
 

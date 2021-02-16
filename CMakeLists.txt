@@ -26,6 +26,7 @@ add_executable(test_app
     test/graph_test.cpp
     test/path_sync_test.cpp
     test/single_path_search_test.cpp
+    test/multi_path_search_test.cpp
     test/test.cpp
 )
 

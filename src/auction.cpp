@@ -108,7 +108,7 @@ bool Auction::Bid::detectCycle(std::vector<bool>& visited, const std::string& ex
     if (visited[idx] || visited[idx + 1]) {
         return visited[idx];
     }
-    // handle special case flag for handling temporary bid inbetween existing bids
+    // handle special case flag for handling temporary bids inbetween existing bids
     const auto next_idx = next ? 2 * next->id : visited.size();
     if (next_idx + 1 < visited.size() && !visited[next_idx + 1]) {
         visited[next_idx] = false;
