@@ -7,7 +7,7 @@
 
 namespace decentralized_path_auction {
 
-const Auction::Bid& baseBid(const Visit& visit) {
+static inline const Auction::Bid& baseBid(const Visit& visit) {
     return visit.node->auction.getBids().find(visit.base_price)->second;
 }
 
@@ -237,17 +237,20 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
 
 bool PathSearch::detectCycle(const Auction::Bid& bid, const Visit& visit, const Visit& start_visit) {
     _cycle_visits.clear();
+    // mark previous visits in path as part of ancestor visits
     for (const Visit* visit_ptr = &start_visit; visit_ptr != &visit; ++visit_ptr) {
         auto idx = 2 * baseBid(*visit_ptr).id;
         _cycle_visits.resize(std::max(_cycle_visits.size(), idx + 2));
         _cycle_visits[idx] = true;
     }
+    // detect cycle of prev->lower bid
     auto& base_bid = baseBid(visit);
     _cycle_visits.resize(std::max({_cycle_visits.size(), (bid.id + 1) * 2, (base_bid.id + 1) * 2}));
     _cycle_visits[2 * bid.id] = true;
     if (base_bid.detectCycle(_cycle_visits, _config.agent_id)) {
         return true;
     }
+    // detect cycle of lower bid
     _cycle_visits[2 * bid.id] = false;
     return bid.detectCycle(_cycle_visits, _config.agent_id);
 }
@@ -263,6 +266,7 @@ bool PathSearch::checkTermination(const Visit& visit) const {
 float PathSearch::determinePrice(float base_price, float price_limit, float cost, float alternative_cost) const {
     assert(cost <= alternative_cost);
     assert(base_price <= price_limit);
+    // take mid price if it is lower than minimum increment to avoid bidding over slot limit
     float min_price = base_price + _config.price_increment;
     float mid_price = (base_price + price_limit) / 2;
     if (mid_price <= min_price) {
