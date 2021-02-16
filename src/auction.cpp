@@ -104,14 +104,19 @@ Auction::Bids::const_iterator Auction::getHighestBid(const std::string& exclude_
 bool Auction::Bid::detectCycle(std::vector<bool>& visited, const std::string& exclude_bidder) const {
     const auto idx = 2 * id;
     visited.resize(std::max(visited.size(), idx + 2));
-    // cycle occured if previously visited bid was visited again
-    if (visited[idx + 1]) {
+    // cycle occured if previously visited ancestor bid was visited again
+    if (visited[idx] || visited[idx + 1]) {
         return visited[idx];
+    }
+    // handle special case flag for handling temporary bid inbetween existing bids
+    const auto next_idx = next ? 2 * next->id : visited.size();
+    if (next_idx + 1 < visited.size() && !visited[next_idx + 1]) {
+        visited[next_idx] = false;
     }
     // mark traversed bids as visited
     visited[idx + 1] = true;
     visited[idx] = true;
-    // detect cycle for next bids in time (first by auction, then by path)
+    // detect cycle for next bids in time (first by auction rank, then by path sequence)
     return visited[idx] = (lower && lower->detectCycle(visited, exclude_bidder)) ||
                           // skip the current bid's path if the bidder is excluded
                           (bidder != exclude_bidder &&
