@@ -196,10 +196,13 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
         }
     }
     // decide on a bid price for the min cost visit
-    auto higher_bid = visit.node->auction.getHigherBid(min_cost_visit.base_price, _config.agent_id);
-    min_cost_visit.price = determinePrice(min_cost_visit.base_price,
-            higher_bid == visit.node->auction.getBids().end() ? std::numeric_limits<float>::max() : higher_bid->first,
-            min_cost, min_cost_visit.price);
+    if (min_cost_visit.node) {
+        auto higher_bid = min_cost_visit.node->auction.getHigherBid(min_cost_visit.base_price, _config.agent_id);
+        min_cost_visit.price = determinePrice(min_cost_visit.base_price,
+                higher_bid == min_cost_visit.node->auction.getBids().end() ? std::numeric_limits<float>::max()
+                                                                           : higher_bid->first,
+                min_cost, min_cost_visit.price);
+    }
     return min_cost;
 }
 
