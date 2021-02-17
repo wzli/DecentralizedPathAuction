@@ -27,7 +27,7 @@ std::vector<Graph::Nodes> make_test_graph(Graph& graph) {
     return rows;
 }
 
-TEST(path_search, reset_input_checks) {
+TEST(single_path_search, reset_input_checks) {
     PathSearch path_search({"A"});
     Graph::NodePtr node(new Graph::Node{{0, 0}});
     // valid destination
@@ -43,7 +43,7 @@ TEST(path_search, reset_input_checks) {
     EXPECT_EQ(path_search.reset({node}), PathSearch::DESTINATION_NODE_NO_PARKING);
 }
 
-TEST(path_search, iterate_input_checks) {
+TEST(single_path_search, iterate_input_checks) {
     PathSearch path_search({"A"});
     Graph::NodePtr node(new Graph::Node{{0, 0}});
     Path path = {{node}};
@@ -84,7 +84,7 @@ TEST(path_search, iterate_input_checks) {
     EXPECT_EQ(path_search.iterate(path), PathSearch::SUCCESS);
 }
 
-TEST(path_search, single_path) {
+TEST(single_path_search, manual_iterations) {
     Graph graph;
     auto nodes = make_test_graph(graph);
     PathSearch path_search({"A"});
@@ -140,7 +140,7 @@ TEST(path_search, single_path) {
     EXPECT_EQ(path.back().node, nodes[1][5]);
 }
 
-TEST(path_search, single_passive_path) {
+TEST(single_path_search, passive_path_manual_iterations) {
     Graph graph;
     auto nodes = make_test_graph(graph);
     PathSearch path_search({"A"});
@@ -188,16 +188,9 @@ TEST(path_search, single_passive_path) {
     }
     EXPECT_EQ(calls, 38);
     EXPECT_EQ(path.back().node, nodes[2][9]);
-
-    // reset node states to enabled
-    for (int i = 0; i < 3; ++i) {
-        for (auto& node : nodes[i]) {
-            node->state = Graph::Node::ENABLED;
-        }
-    }
 }
 
-TEST(path_search, single_passive_path_iterations) {
+TEST(single_path_search, passive_path) {
     Graph graph;
     auto nodes = make_test_graph(graph);
     PathSearch path_search({"B"});
@@ -223,11 +216,51 @@ TEST(path_search, single_passive_path_iterations) {
     path = {{nodes[0][5]}};
     ASSERT_EQ(path_search.iterate(path, 100), PathSearch::SUCCESS);
     EXPECT_EQ(path.back().node, nodes[2][9]);
+}
 
-    // reset node states to enabled
-    for (int i = 0; i < 3; ++i) {
-        for (auto& node : nodes[i]) {
-            node->state = Graph::Node::ENABLED;
-        }
-    }
+TEST(single_path_search, multiple_destinations) {
+    Graph graph;
+    auto nodes = make_test_graph(graph);
+    PathSearch path_search({"A"});
+    // set multiple destinations
+    ASSERT_EQ(path_search.reset({{nodes[1][9], nodes[2][9]}}), PathSearch::SUCCESS);
+
+    // find the closest destination
+    Path path = {{nodes[0][0]}};
+    ASSERT_EQ(path_search.iterate(path, 200), PathSearch::SUCCESS);
+    EXPECT_EQ(path.back().node, nodes[1][9]);
+
+    // expect a second attempt to take less iterations via previously cached cost estimates
+    path.resize(1);
+    ASSERT_EQ(path_search.iterate(path, 20), PathSearch::SUCCESS);
+    EXPECT_EQ(path.back().node, nodes[1][9]);
+
+    // try from a different start location
+    path = {{nodes[0][5]}};
+    ASSERT_EQ(path_search.iterate(path, 100), PathSearch::SUCCESS);
+    EXPECT_EQ(path.back().node, nodes[1][9]);
+}
+
+TEST(single_path_search, disabled_node) {
+    Graph graph;
+    auto nodes = make_test_graph(graph);
+    PathSearch path_search({"A"});
+    // set multiple destinations but block the path to the closest one
+    nodes[1][5]->state = Graph::Node::DISABLED;
+    ASSERT_EQ(path_search.reset({{nodes[1][9], nodes[2][9]}}), PathSearch::SUCCESS);
+
+    // find the closest destination
+    Path path = {{nodes[0][0]}};
+    ASSERT_EQ(path_search.iterate(path, 200), PathSearch::SUCCESS);
+    EXPECT_EQ(path.back().node, nodes[2][9]);
+
+    // expect a second attempt to take less iterations via previously cached cost estimates
+    path.resize(1);
+    ASSERT_EQ(path_search.iterate(path, 20), PathSearch::SUCCESS);
+    EXPECT_EQ(path.back().node, nodes[2][9]);
+
+    // try from a different start location
+    path = {{nodes[0][5]}};
+    ASSERT_EQ(path_search.iterate(path, 100), PathSearch::SUCCESS);
+    EXPECT_EQ(path.back().node, nodes[2][9]);
 }
