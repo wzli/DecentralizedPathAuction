@@ -35,7 +35,7 @@ void print_graph(const Graph& graph) {
     printf("%lu nodes total\r\n", graph.getNodes().size());
 }
 
-bool save_graph(const Graph& graph, const char* file) {
+bool save_graph_dot(const Graph& graph, const char* file) {
     auto fp = fopen(file, "w");
     if (!fp) {
         return false;
@@ -49,6 +49,20 @@ bool save_graph(const Graph& graph, const char* file) {
         }
     }
     fputs("}", fp);
+    return !fclose(fp);
+}
+
+bool save_graph(const Graph& graph, const char* file) {
+    auto fp = fopen(file, "w");
+    if (!fp) {
+        return false;
+    }
+    fprintf(fp, "src_pos_x, src_pos_y, dst_pos_x, dst_pos_y\r\n");
+    for (auto& [pos, node] : graph.getNodes()) {
+        for (auto& adj_node : node->edges) {
+            fprintf(fp, "%f, %f, %f, %f\r\n", pos.x(), pos.y(), adj_node->position.x(), adj_node->position.y());
+        }
+    }
     return !fclose(fp);
 }
 
