@@ -8,7 +8,7 @@ static void check_auction_links(const Auction::Bids& bids) {
     EXPECT_EQ(bids.begin()->second.lower, nullptr);
     EXPECT_EQ(bids.begin()->second.next, nullptr);
     EXPECT_EQ(bids.begin()->second.prev, nullptr);
-    int i = 0;
+    size_t i = 0;
     for (auto bid = &std::next(bids.begin())->second; bid; bid = bid->next, ++i) {
         if (bid->prev) {
             EXPECT_EQ(bid->prev->next, bid);
@@ -23,13 +23,13 @@ static void check_auction_links(const Auction::Bids& bids) {
         ASSERT_TRUE(bid->lower);
         EXPECT_EQ(bid->lower->next, bid->lower == &bids.begin()->second ? nullptr : bid);
     }
-    EXPECT_EQ(i, bids.size() - 1);
+    EXPECT_EQ(i + 1, bids.size());
 }
 
 TEST(auction, constructor) {
     Auction auction(10);
     EXPECT_EQ(auction.getBids().begin()->first, 10);
-    EXPECT_EQ(auction.getBids().size(), 1);
+    EXPECT_EQ(auction.getBids().size(), 1u);
     auto& [start_price, start_bid] = *auction.getBids().begin();
     EXPECT_EQ(start_price, 10);
     EXPECT_EQ(start_bid.bidder, "");
@@ -61,7 +61,7 @@ TEST(auction, destructor) {
         EXPECT_EQ(bid->second.prev, nullptr);
         EXPECT_EQ(bid->second.next, nullptr);
     }
-    EXPECT_EQ(auc1.getBids().size(), 6);
+    EXPECT_EQ(auc1.getBids().size(), 6u);
 }
 
 TEST(auction, insert_bid) {

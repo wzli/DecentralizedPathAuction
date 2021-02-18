@@ -24,17 +24,17 @@ TEST(path_sync, move_assign) {
     PathSync path_sync_2;
     ASSERT_EQ(path_sync_2.updatePath("B", path, 0), PathSync::SUCCESS);
     for (auto& node : nodes) {
-        ASSERT_EQ(node->auction.getBids().size(), 3);
+        ASSERT_EQ(node->auction.getBids().size(), 3u);
     }
     path_sync_1 = std::move(path_sync_2);
     // expect that path in path_sync 1 is removed, and replaced with the other
     for (auto& node : nodes) {
-        ASSERT_EQ(node->auction.getBids().size(), 2);
+        ASSERT_EQ(node->auction.getBids().size(), 2u);
         ASSERT_EQ(node->auction.getHighestBid()->first, 2);
     }
     ASSERT_TRUE(path_sync_2.getPaths().empty());
-    ASSERT_EQ(path_sync_1.getPaths().size(), 1);
-    ASSERT_EQ(path_sync_1.getPaths().count("B"), 1);
+    ASSERT_EQ(path_sync_1.getPaths().size(), 1u);
+    ASSERT_EQ(path_sync_1.getPaths().count("B"), 1u);
 }
 
 TEST(path_sync, update_path) {
@@ -78,18 +78,18 @@ TEST(path_sync, update_path) {
 
     // valid update
     for (auto& node : nodes) {
-        EXPECT_EQ(node->auction.getBids().size(), 2);
+        EXPECT_EQ(node->auction.getBids().size(), 2u);
     }
     ASSERT_EQ(path_sync.updatePath("A", path, 1), PathSync::SUCCESS);
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::PATH_ID_STALE);
     for (auto& node : nodes) {
-        EXPECT_EQ(node->auction.getBids().size(), 2);
+        EXPECT_EQ(node->auction.getBids().size(), 2u);
     }
     nodes[5]->auction.clearBids(0);
     ASSERT_EQ(path_sync.updatePath("A", path, 2), PathSync::VISIT_BID_ALREADY_REMOVED);
 
     auto& path_info = path_sync.getPaths().at("A");
-    EXPECT_EQ(path_info.path_id, 2);
+    EXPECT_EQ(path_info.path_id, 2u);
     EXPECT_EQ(path_info.path.size(), path.size());
 }
 
@@ -106,7 +106,7 @@ TEST(path_sync, update_progress) {
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
     auto& path_info = path_sync.getPaths().at("A");
     EXPECT_EQ(path_info.path.size(), path.size());
-    EXPECT_EQ(path_info.progress, 0);
+    EXPECT_EQ(path_info.progress, 0u);
 
     // input checks
     ASSERT_EQ(path_sync.updateProgress("B", 0, 0), PathSync::AGENT_ID_NOT_FOUND);
@@ -118,10 +118,10 @@ TEST(path_sync, update_progress) {
     ASSERT_EQ(path_sync.updateProgress("A", 5, 0), PathSync::SUCCESS);
     // first bids before updated progress should be removed
     for (size_t i = 0; i < nodes.size(); ++i) {
-        EXPECT_EQ(nodes[i]->auction.getBids().size(), i < 5 ? 1 : 2);
+        EXPECT_EQ(nodes[i]->auction.getBids().size(), i < 5 ? 1u : 2u);
     }
     EXPECT_EQ(path_sync.updateProgress("A", 0, 0), PathSync::PROGRESS_DECREASE_DENIED);
-    EXPECT_EQ(path_info.progress, 5);
+    EXPECT_EQ(path_info.progress, 5u);
     EXPECT_EQ(path_info.path.size(), path.size());
 }
 
@@ -140,24 +140,24 @@ TEST(path_sync, remove_path) {
     // insert and remove
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
     for (size_t i = 0; i < nodes.size(); ++i) {
-        EXPECT_EQ(nodes[i]->auction.getBids().size(), 2);
+        EXPECT_EQ(nodes[i]->auction.getBids().size(), 2u);
     }
     ASSERT_EQ(path_sync.removePath("A"), PathSync::SUCCESS);
-    ASSERT_EQ(path_sync.getPaths().count("A"), 0);
+    ASSERT_EQ(path_sync.getPaths().count("A"), 0u);
     for (size_t i = 0; i < nodes.size(); ++i) {
-        EXPECT_EQ(nodes[i]->auction.getBids().size(), 1);
+        EXPECT_EQ(nodes[i]->auction.getBids().size(), 1u);
     }
 
     // insert and remove but with a missing bid during removal
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
     for (size_t i = 0; i < nodes.size(); ++i) {
-        EXPECT_EQ(nodes[i]->auction.getBids().size(), 2);
+        EXPECT_EQ(nodes[i]->auction.getBids().size(), 2u);
     }
     nodes[5]->auction.clearBids(0);
     ASSERT_EQ(path_sync.removePath("A"), PathSync::VISIT_BID_ALREADY_REMOVED);
-    ASSERT_EQ(path_sync.getPaths().count("A"), 0);
+    ASSERT_EQ(path_sync.getPaths().count("A"), 0u);
     for (size_t i = 0; i < nodes.size(); ++i) {
-        EXPECT_EQ(nodes[i]->auction.getBids().size(), 1);
+        EXPECT_EQ(nodes[i]->auction.getBids().size(), 1u);
     }
 }
 
@@ -173,8 +173,8 @@ TEST(path_sync, clear_paths) {
     }
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
     path_sync.clearPaths();
-    EXPECT_EQ(path_sync.getPaths().size(), 0);
+    EXPECT_EQ(path_sync.getPaths().size(), 0u);
     for (size_t i = 0; i < nodes.size(); ++i) {
-        EXPECT_EQ(nodes[i]->auction.getBids().size(), 1);
+        EXPECT_EQ(nodes[i]->auction.getBids().size(), 1u);
     }
 }
