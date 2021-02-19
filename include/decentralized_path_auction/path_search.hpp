@@ -27,8 +27,7 @@ public:
         CONFIG_TRAVEL_TIME_MISSING,
     };
 
-    using TravelTime =
-            std::function<float(const Graph::NodePtr& prev, const Graph::NodePtr& cur, const Graph::NodePtr& next)>;
+    using TravelTime = std::function<float(const NodePtr& prev, const NodePtr& cur, const NodePtr& next)>;
 
     struct Config {
         std::string agent_id;
@@ -46,17 +45,17 @@ public:
 
     Config& editConfig() { return _config; }
 
-    Error reset(Graph::Nodes nodes);
+    Error reset(Nodes nodes);
     Error iterate(Path& path, size_t iterations = 0);
     // divert destination when cost limit is exceeded
     Error iterateAutoDivert(Path& path, size_t iterations);
 
-    static float travelDistance(const Graph::NodePtr&, const Graph::NodePtr& cur, const Graph::NodePtr& next) {
+    static float travelDistance(const NodePtr&, const NodePtr& cur, const NodePtr& next) {
         return bg::distance(cur->position, next->position);
     }
 
 private:
-    float getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid);
+    float getCostEstimate(const NodePtr& node, const Auction::Bid& bid);
     float findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Visit& front_visit);
     bool appendMinCostVisit(size_t visit_index, Path& path);
     bool detectCycle(const Auction::Bid& bid, const Visit& visit, const Visit& front_visit);

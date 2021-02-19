@@ -30,7 +30,7 @@ PathSearch::Error PathSearch::Config::validate() const {
     return SUCCESS;
 }
 
-PathSearch::Error PathSearch::reset(Graph::Nodes nodes) {
+PathSearch::Error PathSearch::reset(Nodes nodes) {
     // reset cost estimates
     _cost_estimates.clear();
     // reset destination nodes
@@ -40,7 +40,7 @@ PathSearch::Error PathSearch::reset(Graph::Nodes nodes) {
         if (!Graph::validateNode(node)) {
             return DESTINATION_NODE_INVALID;
         }
-        if (node->state >= Graph::Node::NO_PARKING) {
+        if (node->state >= Node::NO_PARKING) {
             return DESTINATION_NODE_NO_PARKING;
         }
         if (!_dst_nodes.insertNode(std::move(node))) {
@@ -63,11 +63,11 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     if (!Graph::validateNode(src_node)) {
         return SOURCE_NODE_INVALID;
     }
-    if (src_node->state >= Graph::Node::DISABLED) {
+    if (src_node->state >= Node::DISABLED) {
         return SOURCE_NODE_DISABLED;
     }
     // check destination nodes (empty means passive and any node will suffice)
-    if (!_dst_nodes.getNodes().empty() && !_dst_nodes.findAnyNode(Graph::Node::DEFAULT)) {
+    if (!_dst_nodes.getNodes().empty() && !_dst_nodes.findAnyNode(Node::DEFAULT)) {
         return DESTINATION_NODE_NO_PARKING;
     }
     // source visit is required to have the highest bid in auction to claim the source node
@@ -83,7 +83,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     // truncate visits in path that are invalid (node got deleted/disabled or bid got removed)
     path.erase(std::find_if(path.begin() + 1, path.end(),
                        [](const Visit& visit) {
-                           return !Graph::validateNode(visit.node) || visit.node->state >= Graph::Node::DISABLED ||
+                           return !Graph::validateNode(visit.node) || visit.node->state >= Node::DISABLED ||
                                   !visit.node->auction.getBids().count(visit.base_price) ||
                                   visit.time < (&visit - 1)->time;
                        }),
@@ -130,7 +130,7 @@ PathSearch::Error PathSearch::iterateAutoDivert(Path& path, size_t iterations) {
     }
 }
 
-float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid) {
+float PathSearch::getCostEstimate(const NodePtr& node, const Auction::Bid& bid) {
     auto& [cost_bid, cost_estimate] = _cost_estimates[bid.id];
     if (cost_bid != &bid) {
         cost_bid = &bid;
@@ -139,7 +139,7 @@ float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid
             cost_estimate = 0;
         } else {
             assert(Graph::validateNode(node));
-            auto nearest_goal = _dst_nodes.findNearestNode(node->position, Graph::Node::DEFAULT);
+            auto nearest_goal = _dst_nodes.findNearestNode(node->position, Node::DEFAULT);
             cost_estimate = _config.travel_time(nullptr, node, nearest_goal) * _config.time_exchange_rate;
         }
     }
@@ -147,14 +147,14 @@ float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid
 }
 
 float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Visit& front_visit) {
-    const Graph::NodePtr& prev_node = &visit == &front_visit ? nullptr : (&visit - 1)->node;
+    const NodePtr& prev_node = &visit == &front_visit ? nullptr : (&visit - 1)->node;
     float min_cost = std::numeric_limits<float>::max();
     min_cost_visit = {nullptr, 0, min_cost};
     // loop over each adjacent node
     for (auto& adj_node : visit.node->edges) {
         DEBUG_PRINTF("->[%f %f] \r\n", adj_node->position.x(), adj_node->position.y());
         // skip disabled nodes
-        if (adj_node->state >= Graph::Node::DISABLED) {
+        if (adj_node->state >= Node::DISABLED) {
             DEBUG_PRINTF("Node Disabled\r\n");
             continue;
         }
@@ -177,7 +177,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
                 continue;
             }
             // skip bid if it requires waiting but current node doesn't allow it
-            if (visit.node->state == Graph::Node::NO_STOPPING && wait_duration > earliest_arrival_time) {
+            if (visit.node->state == Node::NO_STOPPING && wait_duration > earliest_arrival_time) {
                 DEBUG_PRINTF("No Stopping\r\n");
                 continue;
             }
@@ -282,7 +282,7 @@ bool PathSearch::checkCostLimit(const Visit& visit) {
 
 bool PathSearch::checkTermination(const Visit& visit) const {
     // termination condition for passive paths (any parkable node where there are no other bids)
-    return (_dst_nodes.getNodes().empty() && visit.node->state < Graph::Node::NO_PARKING &&
+    return (_dst_nodes.getNodes().empty() && visit.node->state < Node::NO_PARKING &&
                    visit.node->auction.getHighestBid(_config.agent_id)->second.bidder.empty()) ||
            // termination condition for regular destinations
            _dst_nodes.containsNode(visit.node);

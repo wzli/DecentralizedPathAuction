@@ -3,12 +3,11 @@
 
 using namespace decentralized_path_auction;
 
-void make_pathway(Graph& graph, Graph::Nodes& pathway, Point2D a, Point2D b, size_t n,
-        Graph::Node::State state = Graph::Node::DEFAULT);
+void make_pathway(Graph& graph, Nodes& pathway, Point2D a, Point2D b, size_t n, Node::State state = Node::DEFAULT);
 
 void print_path(const Path& path);
 
-std::vector<Graph::Nodes> make_test_graph(Graph& graph) {
+std::vector<Nodes> make_test_graph(Graph& graph) {
     /*
         make the graph below:
         00-01-02-03-04-05-06-07-08-09
@@ -17,7 +16,7 @@ std::vector<Graph::Nodes> make_test_graph(Graph& graph) {
         |
         20-21-22-23-24-25-26-27-28-29
     */
-    std::vector<Graph::Nodes> rows(3);
+    std::vector<Nodes> rows(3);
     // graph.clearNodes();
     make_pathway(graph, rows[0], {0, 0}, {90, 0}, 10);
     make_pathway(graph, rows[1], {0, 10}, {90, 10}, 10);
@@ -31,7 +30,7 @@ std::vector<Graph::Nodes> make_test_graph(Graph& graph) {
 
 TEST(single_path_search, reset_input_checks) {
     PathSearch path_search({"A"});
-    Graph::NodePtr node(new Graph::Node{{0, 0}});
+    NodePtr node(new Node{{0, 0}});
     // valid destination
     EXPECT_EQ(path_search.reset({node}), PathSearch::SUCCESS);
     // passive destination
@@ -41,13 +40,13 @@ TEST(single_path_search, reset_input_checks) {
     // reject duplicate node
     EXPECT_EQ(path_search.reset({node, node}), PathSearch::DESTINATION_NODE_DUPLICATED);
     // reject no parking
-    node->state = Graph::Node::NO_PARKING;
+    node->state = Node::NO_PARKING;
     EXPECT_EQ(path_search.reset({node}), PathSearch::DESTINATION_NODE_NO_PARKING);
 }
 
 TEST(single_path_search, iterate_input_checks) {
     PathSearch path_search({"A"});
-    Graph::NodePtr node(new Graph::Node{{0, 0}});
+    NodePtr node(new Node{{0, 0}});
     Path path = {{node}};
 
     // config validation
@@ -75,9 +74,9 @@ TEST(single_path_search, iterate_input_checks) {
     path.push_back({nullptr});
     EXPECT_EQ(path_search.iterate(path), PathSearch::SOURCE_NODE_INVALID);
     path = {{node}};
-    node->state = Graph::Node::DISABLED;
+    node->state = Node::DISABLED;
     EXPECT_EQ(path_search.iterate(path), PathSearch::SOURCE_NODE_DISABLED);
-    node->state = Graph::Node::DEFAULT;
+    node->state = Node::DEFAULT;
     Auction::Bid* prev = nullptr;
     ASSERT_EQ(node->auction.insertBid("B", std::numeric_limits<float>::max(), 0, prev), Auction::SUCCESS);
     EXPECT_EQ(path_search.iterate(path), PathSearch::SOURCE_NODE_OCCUPIED);
@@ -165,10 +164,10 @@ TEST(single_path_search, passive_path_manual_iterations) {
     // set all nodes as no parking execpt 1
     for (int i = 0; i < 3; ++i) {
         for (auto& node : nodes[i]) {
-            node->state = Graph::Node::NO_PARKING;
+            node->state = Node::NO_PARKING;
         }
     }
-    nodes[2][9]->state = Graph::Node::DEFAULT;
+    nodes[2][9]->state = Node::DEFAULT;
 
     int calls;
     // try to find a passive path to the single parkable node
@@ -215,10 +214,10 @@ TEST(single_path_search, passive_path) {
     // set all nodes as no parking execpt 1
     for (int i = 0; i < 3; ++i) {
         for (auto& node : nodes[i]) {
-            node->state = Graph::Node::NO_PARKING;
+            node->state = Node::NO_PARKING;
         }
     }
-    nodes[2][9]->state = Graph::Node::DEFAULT;
+    nodes[2][9]->state = Node::DEFAULT;
 
     // find the only node that allows parking
     Path path = {{nodes[0][0]}};
@@ -244,8 +243,8 @@ TEST(single_path_search, passive_divert) {
     // set destination with expected travel cost 100
     ASSERT_EQ(path_search.reset({nodes[0][9]}), PathSearch::SUCCESS);
     // set source node as no parking
-    nodes[0][0]->state = Graph::Node::NO_PARKING;
-    nodes[0][1]->state = Graph::Node::NO_PARKING;
+    nodes[0][0]->state = Node::NO_PARKING;
+    nodes[0][1]->state = Node::NO_PARKING;
     // expect destination to be diverted to nearest parkable node
     Path path = {{nodes[0][0]}};
     EXPECT_EQ(path_search.iterateAutoDivert(path, 400), PathSearch::COST_LIMIT_EXCEEDED);
@@ -280,7 +279,7 @@ TEST(single_path_search, disabled_node) {
     auto nodes = make_test_graph(graph);
     PathSearch path_search({"A"});
     // set multiple destinations but block the path to the closest one
-    nodes[1][5]->state = Graph::Node::DISABLED;
+    nodes[1][5]->state = Node::DISABLED;
     ASSERT_EQ(path_search.reset({{nodes[1][9], nodes[2][9]}}), PathSearch::SUCCESS);
 
     // find the closest destination

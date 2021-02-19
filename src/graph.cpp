@@ -2,7 +2,7 @@
 
 namespace decentralized_path_auction {
 
-bool Graph::insertNode(Graph::NodePtr node) {
+bool Graph::insertNode(NodePtr node) {
     if (!validateNode(node)) {
         return false;
     }
@@ -17,7 +17,7 @@ bool Graph::insertNode(Graph::NodePtr node) {
     return true;
 }
 
-bool Graph::removeNode(Graph::NodePtr node) {
+bool Graph::removeNode(NodePtr node) {
     if (!node) {
         return false;
     }
@@ -45,13 +45,13 @@ Graph::RTree Graph::detachNodes() {
     return detached;
 }
 
-Graph::NodePtr Graph::findNearestNode(Point2D position, Node::State criterion) const {
+NodePtr Graph::findNearestNode(Point2D position, Node::State criterion) const {
     return query(bg::index::nearest(position, 1) && bg::index::satisfies([criterion](const RTreeNode& rt_node) {
         return rt_node.second->state <= criterion;
     }));
 }
 
-Graph::NodePtr Graph::findAnyNode(Node::State criterion) const {
+NodePtr Graph::findAnyNode(Node::State criterion) const {
     return query(
             bg::index::satisfies([criterion](const RTreeNode& rt_node) { return rt_node.second->state <= criterion; }));
 }

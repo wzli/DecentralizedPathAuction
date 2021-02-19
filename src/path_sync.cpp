@@ -123,7 +123,7 @@ PathSync::Error PathSync::validate(const Visit& visit) const {
     if (!Graph::validateNode(visit.node)) {
         return VISIT_NODE_INVALID;
     }
-    if (visit.node->state == Graph::Node::DISABLED) {
+    if (visit.node->state == Node::DISABLED) {
         return VISIT_NODE_DISABLED;
     }
     if (visit.price < visit.node->auction.getBids().begin()->first) {

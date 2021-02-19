@@ -4,13 +4,12 @@
 
 using namespace decentralized_path_auction;
 
-void make_pathway(Graph& graph, Graph::Nodes& pathway, Point2D a, Point2D b, size_t n,
-        Graph::Node::State state = Graph::Node::DEFAULT);
+void make_pathway(Graph& graph, Nodes& pathway, Point2D a, Point2D b, size_t n, Node::State state = Node::DEFAULT);
 
 bool save_graph(const Graph& graph, const char* file);
 
 // see single path search test for graph definition
-std::vector<Graph::Nodes> make_test_graph(Graph& graph);
+std::vector<Nodes> make_test_graph(Graph& graph);
 
 void print_path(const Path& path) {
     for (auto& visit : path) {
@@ -44,7 +43,7 @@ bool save_paths(const PathSync& path_sync, const char* file) {
 
 TEST(multi_path_search, head_on) {
     Graph graph;
-    Graph::Nodes nodes;
+    Nodes nodes;
     // 0-1-2-3-4-5-6-7-8-9
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
     PathSync path_sync;
@@ -77,7 +76,7 @@ TEST(multi_path_search, head_on) {
 
 TEST(multi_path_search, follow) {
     Graph graph;
-    Graph::Nodes nodes;
+    Nodes nodes;
     // 0-1-2-3-4-5-6-7-8-9
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
     PathSync path_sync;
@@ -111,7 +110,7 @@ TEST(multi_path_search, follow) {
 
 TEST(multi_path_search, push) {
     Graph graph;
-    Graph::Nodes nodes;
+    Nodes nodes;
     // 0-1-2-3-4-5-6-7-8-9
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
     PathSync path_sync;

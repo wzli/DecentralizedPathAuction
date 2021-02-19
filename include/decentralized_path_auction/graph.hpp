@@ -1,11 +1,9 @@
 #pragma once
 
 #include <decentralized_path_auction/auction.hpp>
-
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/index/rtree.hpp>
-
 #include <memory>
 
 namespace decentralized_path_auction {
@@ -13,17 +11,28 @@ namespace decentralized_path_auction {
 namespace bg = boost::geometry;
 using Point2D = bg::model::d2::point_xy<float>;
 
+struct Node {
+    const Point2D position;
+    enum State { DEFAULT, NO_PARKING, NO_STOPPING, DISABLED, DELETED } state = DEFAULT;
+    std::vector<std::shared_ptr<Node>> edges = {};
+    Auction auction = {};
+};
+
+using NodePtr = std::shared_ptr<Node>;
+using Nodes = std::vector<NodePtr>;
+
+struct Visit {
+    NodePtr node;
+    float time = 0;
+    float price = 0;
+    float base_price = 0;
+    float cost_estimate = 0;
+};
+
+using Path = std::vector<Visit>;
+
 class Graph {
 public:
-    struct Node {
-        const Point2D position;
-        enum State { DEFAULT, NO_PARKING, NO_STOPPING, DISABLED, DELETED } state = DEFAULT;
-        std::vector<std::shared_ptr<Node>> edges = {};
-        Auction auction = {};
-    };
-
-    using NodePtr = std::shared_ptr<Node>;
-    using Nodes = std::vector<NodePtr>;
     using RTreeNode = std::pair<Point2D, NodePtr>;
     using RTree = bg::index::rtree<RTreeNode, bg::index::rstar<16>>;
 
@@ -31,19 +40,18 @@ public:
     ~Graph() { clearNodes(); }
     Graph& operator=(Graph&& rhs) { return clearNodes(), _nodes.swap(rhs._nodes), *this; }
 
+    template <class... Args>
+    NodePtr insertNode(Point2D position, Args&&... args) {
+        auto node = NodePtr(new Node{position, std::forward<Args>(args)...});
+        return insertNode(node) ? std::move(node) : nullptr;
+    }
     bool insertNode(NodePtr node);
     bool removeNode(NodePtr node);
-
-    // position based insert and remove
-    template <class... Args>
-    bool insertNode(Point2D position, Args&&... args) {
-        return insertNode(NodePtr(new Node{position, std::forward<Args>(args)...}));
-    }
     bool removeNode(Point2D position) { return removeNode(findNode(position)); }
 
-    // nodes are deleted when cleared but not when detached
+    // nodes are deleted when cleared but not when detached, must must manually clear
+    // edge links from detached nodes to prevent cyclic shared_ptr memory leak
     void clearNodes();
-    // WARNING: must manually clear edge links from detached nodes to prevent cyclic shared_ptr memory leak
     RTree detachNodes();
 
     template <class Predicate>
@@ -63,15 +71,5 @@ public:
 private:
     RTree _nodes;
 };
-
-struct Visit {
-    Graph::NodePtr node;
-    float time = 0;
-    float price = 0;
-    float base_price = 0;
-    float cost_estimate = 0;
-};
-
-using Path = std::vector<Visit>;
 
 }  // namespace decentralized_path_auction

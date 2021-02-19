@@ -3,14 +3,13 @@
 
 using namespace decentralized_path_auction;
 
-void make_pathway(Graph& graph, Graph::Nodes& pathway, Point2D a, Point2D b, size_t n,
-        Graph::Node::State state = Graph::Node::DEFAULT);
+void make_pathway(Graph& graph, Nodes& pathway, Point2D a, Point2D b, size_t n, Node::State state = Node::DEFAULT);
 
 void print_path(const Path& path);
 
 TEST(path_sync, move_assign) {
     Graph graph;
-    Graph::Nodes nodes;
+    Nodes nodes;
     make_pathway(graph, nodes, {0, 0}, {10, 10}, 11);
     Path path;
     float t = 0;
@@ -41,7 +40,7 @@ TEST(path_sync, move_assign) {
 
 TEST(path_sync, update_path) {
     Graph graph;
-    Graph::Nodes nodes;
+    Nodes nodes;
     make_pathway(graph, nodes, {0, 0}, {10, 10}, 11);
     Path path;
     float t = 0;
@@ -57,9 +56,9 @@ TEST(path_sync, update_path) {
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_NODE_INVALID);
     path[5].node = nodes[5];
 
-    path[5].node->state = Graph::Node::DISABLED;
+    path[5].node->state = Node::DISABLED;
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_NODE_DISABLED);
-    path[5].node->state = Graph::Node::DEFAULT;
+    path[5].node->state = Node::DEFAULT;
 
     path[5].price *= -1;
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_PRICE_LESS_THAN_START_PRICE);
@@ -104,7 +103,7 @@ TEST(path_sync, update_path) {
 
 TEST(path_sync, update_progress) {
     Graph graph;
-    Graph::Nodes nodes;
+    Nodes nodes;
     PathSync path_sync;
     make_pathway(graph, nodes, {0, 0}, {10, 10}, 11);
     Path path;
@@ -136,7 +135,7 @@ TEST(path_sync, update_progress) {
 
 TEST(path_sync, remove_path) {
     Graph graph;
-    Graph::Nodes nodes;
+    Nodes nodes;
     PathSync path_sync;
     make_pathway(graph, nodes, {0, 0}, {10, 10}, 11);
     Path path;
@@ -172,7 +171,7 @@ TEST(path_sync, remove_path) {
 
 TEST(path_sync, clear_paths) {
     Graph graph;
-    Graph::Nodes nodes;
+    Nodes nodes;
     PathSync path_sync;
     make_pathway(graph, nodes, {0, 0}, {10, 10}, 11);
     Path path;
@@ -190,7 +189,7 @@ TEST(path_sync, clear_paths) {
 
 TEST(path_sync, entited_segment) {
     Graph graph;
-    Graph::Nodes nodes;
+    Nodes nodes;
     PathSync path_sync;
     make_pathway(graph, nodes, {0, 0}, {9, 9}, 10);
     Path path;
@@ -205,10 +204,10 @@ TEST(path_sync, entited_segment) {
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
     EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::SUCCESS);
     EXPECT_EQ(segment.size(), path.size());
-    nodes[5]->state = Graph::Node::DISABLED;
+    nodes[5]->state = Node::DISABLED;
     EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::VISIT_NODE_DISABLED);
     EXPECT_EQ(segment.size(), 5u);
-    nodes[5]->state = Graph::Node::DEFAULT;
+    nodes[5]->state = Node::DEFAULT;
 
     // intersecting path with lower bid
     {
