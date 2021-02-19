@@ -123,10 +123,10 @@ bool PathSync::detectCycle() {
     _cycle_visits.clear();
     for (const auto& info : _paths) {
         assert(info.second.path.size());
-        auto& source_visit = info.second.path.front();
-        assert(source_visit.node);
-        auto& bids = source_visit.node->auction.getBids();
-        auto bid = bids.find(source_visit.price);
+        auto& visit = info.second.path[info.second.progress];
+        assert(visit.node);
+        auto& bids = visit.node->auction.getBids();
+        auto bid = bids.find(visit.price);
         if (bid != bids.end() && bid->second.detectCycle(_cycle_visits)) {
             return true;
         }
