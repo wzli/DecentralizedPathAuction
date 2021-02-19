@@ -15,6 +15,9 @@ PathSearch::Error PathSearch::Config::validate() const {
     if (agent_id.empty()) {
         return CONFIG_AGENT_ID_EMPTY;
     }
+    if (cost_limit <= 0) {
+        return CONFIG_COST_LIMIT_NON_POSITIVE;
+    }
     if (price_increment <= 0) {
         return CONFIG_PRICE_INCREMENT_NON_POSITIVE;
     }
@@ -58,24 +61,20 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     }
     auto& src_node = path.front().node;
     if (!Graph::validateNode(src_node)) {
-        path.resize(1);
         return SOURCE_NODE_INVALID;
     }
     if (src_node->state >= Graph::Node::DISABLED) {
-        path.resize(1);
         return SOURCE_NODE_DISABLED;
     }
     // check destination nodes (empty means passive and any node will suffice)
     if (!_dst_nodes.getNodes().empty() && !_dst_nodes.findAnyNode(Graph::Node::ENABLED)) {
-        path.resize(1);
         return DESTINATION_NODE_NO_PARKING;
     }
     // source visit is required to have the highest bid in auction to claim the source node
     path.front().time = 0;
-    path.front().price = std::numeric_limits<float>::max();
     path.front().base_price = src_node->auction.getHighestBid(_config.agent_id)->first;
+    path.front().price = path.front().base_price + _config.price_increment;
     if (path.front().base_price >= std::numeric_limits<float>::max()) {
-        path.resize(1);
         return SOURCE_NODE_OCCUPIED;
     }
     // allocate cost lookup
@@ -89,23 +88,33 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
                                   visit.time < (&visit - 1)->time;
                        }),
             path.end());
+    if (checkCostLimit(path.front())) {
+        return COST_LIMIT_EXCEEDED;
+    }
     if (checkTermination(path.back())) {
         return SUCCESS;
     }
     // iterate in reverse order through each visit in path on first pass
+    // use index to iterate since path will be modified at the end of each loop
     for (int visit_index = path.size() - 1; visit_index >= 0; --visit_index) {
-        // use index to iterate since path will be modified at the end of each loop
         appendMinCostVisit(visit_index, path);
     }
     if (iterations == 0) {
         return path.size() > original_path_size ? PATH_EXTENDED : PATH_CONTRACTED;
     }
     // run through requested iterations
-    for (size_t visit_index = path.size() - 1; iterations--;
-            // if cost increased check previous visit, otherwise start again from last visit
-            visit_index = (appendMinCostVisit(visit_index, path) && visit_index > 0 ? visit_index : path.size()) - 1) {
-        if (checkTermination(path[visit_index])) {
-            return SUCCESS;
+    for (size_t visit_index = path.size() - 1; iterations--; --visit_index) {
+        if (visit_index == path.size() - 1) {
+            if (checkCostLimit(path.front())) {
+                return COST_LIMIT_EXCEEDED;
+            }
+            if (checkTermination(path.back())) {
+                return SUCCESS;
+            }
+        }
+        // check previous visit if cost increased otherwise start again from last visit
+        if (!appendMinCostVisit(visit_index, path) || visit_index == 0) {
+            visit_index = path.size();
         }
     }
     return ITERATIONS_REACHED;
@@ -253,6 +262,11 @@ bool PathSearch::detectCycle(const Auction::Bid& bid, const Visit& visit, const 
     // detect cycle of lower bid
     _cycle_visits[2 * bid.id] = false;
     return bid.detectCycle(_cycle_visits, _config.agent_id);
+}
+
+bool PathSearch::checkCostLimit(const Visit& visit) {
+    return !_dst_nodes.getNodes().empty() &&
+           visit.base_price + getCostEstimate(visit.node, baseBid(visit)) > _config.cost_limit;
 }
 
 bool PathSearch::checkTermination(const Visit& visit) const {

@@ -25,7 +25,10 @@ if args.graph:
               graph[:, 2] - graph[:, 0],
               graph[:, 3] - graph[:, 1],
               np.zeros(len(graph)),
-              color='black')
+              arrow_length_ratio = 0.08,
+              color='black',
+              )
+
 
 data = np.genfromtxt(args.paths,
                      delimiter=',',
@@ -40,7 +43,9 @@ for i in np.arange(data[:, 0].max() + 1):
               np.diff(path[:, 1]),
               np.diff(path[:, 2]),
               np.diff(path[:, 3]),
+              arrow_length_ratio = 0.08,
               color=colors[int(i) % len(colors)])
+'''
     ax.quiver(path[:, 1],
               path[:, 2],
               path[:, 3],
@@ -49,8 +54,11 @@ for i in np.arange(data[:, 0].max() + 1):
               1 - path[:, 3].clip(1, 2),
               path[:, 3],
               color='gray')
+'''
 
 ax.zaxis.set_ticks([])
-ax.set_zlim3d(0, 5)
+#ax.set_zlim3d(0, 5)
+#ax.set_xlim3d(0, 100)
+#ax.set_ylim3d(-50, 5)
 
 plt.show()

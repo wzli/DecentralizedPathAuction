@@ -9,6 +9,7 @@ class PathSearch {
 public:
     enum Error {
         SUCCESS,
+        COST_LIMIT_EXCEEDED,
         ITERATIONS_REACHED,
         PATH_EXTENDED,
         PATH_CONTRACTED,
@@ -20,6 +21,7 @@ public:
         SOURCE_NODE_DISABLED,
         SOURCE_NODE_OCCUPIED,
         CONFIG_AGENT_ID_EMPTY,
+        CONFIG_COST_LIMIT_NON_POSITIVE,
         CONFIG_PRICE_INCREMENT_NON_POSITIVE,
         CONFIG_TIME_EXCHANGE_RATE_NON_POSITIVE,
         CONFIG_TRAVEL_TIME_MISSING,
@@ -30,6 +32,7 @@ public:
 
     struct Config {
         std::string agent_id;
+        float cost_limit = std::numeric_limits<float>::max();
         float price_increment = 1;
         float time_exchange_rate = 1;
         TravelTime travel_time = travelDistance;
@@ -55,6 +58,7 @@ private:
     float findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Visit& start_visit);
     bool appendMinCostVisit(size_t visit_index, Path& path);
     bool detectCycle(const Auction::Bid& bid, const Visit& visit, const Visit& start_visit);
+    bool checkCostLimit(const Visit& visit);
     bool checkTermination(const Visit& visit) const;
     float determinePrice(float base_price, float price_limit, float cost, float alternative_cost) const;
 

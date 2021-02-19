@@ -140,5 +140,30 @@ TEST(multi_path_search, push) {
     EXPECT_EQ(path_b.front().node->auction.getBids().find(path_b.front().price)->second.detectCycle(cycle_visits),
             Auction::SUCCESS);
     save_paths(path_sync, "push.csv");
-    save_graph(graph, "graph.csv");
+}
+
+TEST(multi_path_search, dodge) {
+    Graph graph;
+    auto nodes = make_test_graph(graph);
+    PathSync path_sync;
+    size_t path_id_a = 0;
+    size_t path_id_b = 0;
+    PathSearch path_search_a({"A"});
+    PathSearch path_search_b({"B"});
+    Path path_a = {{nodes[0][9]}};
+    Path path_b = {{nodes[2][9]}};
+    ASSERT_EQ(path_search_a.reset({nodes[2][9]}), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search_b.reset({nodes[0][9]}), PathSearch::SUCCESS);
+
+    EXPECT_EQ(path_search_a.iterate(path_a, 400), PathSearch::SUCCESS);
+    print_path(path_a);
+    ASSERT_EQ(path_a.back().node, nodes[2][9]);
+    ASSERT_EQ(path_sync.updatePath("A", path_a, path_id_a++), PathSync::SUCCESS);
+
+    ASSERT_EQ(path_search_b.iterate(path_b, 400), PathSearch::SUCCESS);
+    print_path(path_b);
+    ASSERT_EQ(path_b.back().node, nodes[0][9]);
+    ASSERT_EQ(path_sync.updatePath("B", path_b, path_id_b++), PathSync::SUCCESS);
+    save_paths(path_sync, "dodge.csv");
+    save_graph(graph, "dodge_graph.csv");
 }

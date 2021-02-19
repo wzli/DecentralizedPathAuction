@@ -84,6 +84,22 @@ TEST(single_path_search, iterate_input_checks) {
     EXPECT_EQ(path_search.iterate(path), PathSearch::SUCCESS);
 }
 
+TEST(single_path_search, trivial_path) {
+    Graph graph;
+    auto nodes = make_test_graph(graph);
+    PathSearch path_search({"A"});
+    // passive case
+    Path path = {{nodes[0][0]}};
+    ASSERT_EQ(path_search.iterate(path), PathSearch::SUCCESS);
+    ASSERT_EQ(path.size(), 1u);
+    ASSERT_EQ(path[0].node, nodes[0][0]);
+    // same source as destination
+    path_search.reset({nodes[0][0]});
+    ASSERT_EQ(path_search.iterate(path), PathSearch::SUCCESS);
+    ASSERT_EQ(path.size(), 1u);
+    ASSERT_EQ(path[0].node, nodes[0][0]);
+}
+
 TEST(single_path_search, manual_iterations) {
     Graph graph;
     auto nodes = make_test_graph(graph);
