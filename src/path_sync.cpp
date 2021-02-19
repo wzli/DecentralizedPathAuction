@@ -119,6 +119,21 @@ PathSync::Error PathSync::getEntitledSegment(const std::string& agent_id, Path& 
     return segment.empty() ? SOURCE_NODE_OUTBID : SUCCESS;
 }
 
+bool PathSync::detectCycle() {
+    _cycle_visits.clear();
+    for (const auto& info : _paths) {
+        assert(info.second.path.size());
+        auto& source_visit = info.second.path.front();
+        assert(source_visit.node);
+        auto& bids = source_visit.node->auction.getBids();
+        auto bid = bids.find(source_visit.price);
+        if (bid != bids.end() && bid->second.detectCycle(_cycle_visits)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 PathSync::Error PathSync::validate(const Visit& visit) const {
     if (!Graph::validateNode(visit.node)) {
         return VISIT_NODE_INVALID;

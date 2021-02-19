@@ -65,12 +65,7 @@ TEST(multi_path_search, head_on) {
     // print_path(path_b);
     ASSERT_EQ(path_sync.updatePath("B", path_b, path_id_b++), PathSync::SUCCESS);
 
-    std::vector<bool> cycle_visits;
-    EXPECT_EQ(path_a.front().node->auction.getBids().find(path_a.front().price)->second.detectCycle(cycle_visits),
-            Auction::SUCCESS);
-    cycle_visits.clear();
-    EXPECT_EQ(path_b.front().node->auction.getBids().find(path_b.front().price)->second.detectCycle(cycle_visits),
-            Auction::SUCCESS);
+    EXPECT_FALSE(path_sync.detectCycle());
     save_paths(path_sync, "head_on.csv");
 }
 
@@ -99,12 +94,7 @@ TEST(multi_path_search, follow) {
     ASSERT_EQ(path_b.back().node, nodes[8]);
     ASSERT_EQ(path_sync.updatePath("B", path_b, path_id_b++), PathSync::SUCCESS);
 
-    std::vector<bool> cycle_visits;
-    EXPECT_EQ(path_a.front().node->auction.getBids().find(path_a.front().price)->second.detectCycle(cycle_visits),
-            Auction::SUCCESS);
-    cycle_visits.clear();
-    EXPECT_EQ(path_b.front().node->auction.getBids().find(path_b.front().price)->second.detectCycle(cycle_visits),
-            Auction::SUCCESS);
+    EXPECT_FALSE(path_sync.detectCycle());
     save_paths(path_sync, "follow.csv");
 }
 
@@ -132,12 +122,8 @@ TEST(multi_path_search, push) {
     // print_path(path_b);
     ASSERT_EQ(path_b.back().node, nodes[9]);
     ASSERT_EQ(path_sync.updatePath("B", path_b, path_id_b++), PathSync::SUCCESS);
-    std::vector<bool> cycle_visits;
-    EXPECT_EQ(path_a.front().node->auction.getBids().find(path_a.front().price)->second.detectCycle(cycle_visits),
-            Auction::SUCCESS);
-    cycle_visits.clear();
-    EXPECT_EQ(path_b.front().node->auction.getBids().find(path_b.front().price)->second.detectCycle(cycle_visits),
-            Auction::SUCCESS);
+
+    EXPECT_FALSE(path_sync.detectCycle());
     save_paths(path_sync, "push.csv");
 }
 
@@ -163,6 +149,9 @@ TEST(multi_path_search, dodge) {
     // print_path(path_b);
     ASSERT_EQ(path_b.back().node, nodes[0][9]);
     ASSERT_EQ(path_sync.updatePath("B", path_b, path_id_b++), PathSync::SUCCESS);
+
+    EXPECT_FALSE(path_sync.detectCycle());
+
     save_paths(path_sync, "dodge.csv");
     save_graph(graph, "dodge_graph.csv");
 }

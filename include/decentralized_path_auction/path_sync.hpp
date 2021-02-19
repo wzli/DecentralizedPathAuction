@@ -46,6 +46,8 @@ public:
     Error removePath(const std::string& agent_id);
     Error clearPaths();
 
+    bool detectCycle();
+
     Error getEntitledSegment(const std::string& agent_id, Path& segment) const;
     const Paths& getPaths() const { return _paths; }
 
@@ -54,6 +56,7 @@ public:
 
 private:
     Paths _paths;
+    std::vector<bool> _cycle_visits;
 };
 
 }  // namespace decentralized_path_auction

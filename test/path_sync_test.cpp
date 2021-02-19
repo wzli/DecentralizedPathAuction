@@ -230,3 +230,44 @@ TEST(path_sync, entited_segment) {
     EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::SOURCE_NODE_OUTBID);
     EXPECT_EQ(segment.size(), 0u);
 }
+
+TEST(path_sync, detect_cycle) {
+    Graph graph;
+    Nodes nodes;
+    make_pathway(graph, nodes, {0, 0}, {1, 1}, 2);
+
+    {
+        PathSync path_sync;
+        Path path_a = {{nodes[0], 0, 1}, {nodes[1], 0, 1}};
+        Path path_b = {{nodes[0], 0, 2}, {nodes[1], 0, 2}};
+        ASSERT_EQ(path_sync.updatePath("A", path_a, 0), PathSync::SUCCESS);
+        ASSERT_EQ(path_sync.updatePath("B", path_b, 0), PathSync::SUCCESS);
+        EXPECT_FALSE(path_sync.detectCycle());
+    }
+
+    {
+        PathSync path_sync;
+        Path path_a = {{nodes[0], 0, 1}, {nodes[1], 0, 1}};
+        Path path_b = {{nodes[1], 0, 2}, {nodes[0], 0, 2}};
+        ASSERT_EQ(path_sync.updatePath("A", path_a, 0), PathSync::SUCCESS);
+        ASSERT_EQ(path_sync.updatePath("B", path_b, 0), PathSync::SUCCESS);
+        EXPECT_FALSE(path_sync.detectCycle());
+    }
+
+    {
+        PathSync path_sync;
+        Path path_a = {{nodes[0], 0, 1}, {nodes[1], 0, 2}};
+        Path path_b = {{nodes[0], 0, 2}, {nodes[1], 0, 1}};
+        ASSERT_EQ(path_sync.updatePath("A", path_a, 0), PathSync::SUCCESS);
+        ASSERT_EQ(path_sync.updatePath("B", path_b, 0), PathSync::SUCCESS);
+        EXPECT_TRUE(path_sync.detectCycle());
+    }
+    {
+        PathSync path_sync;
+        Path path_a = {{nodes[0], 0, 2}, {nodes[1], 0, 3}};
+        Path path_b = {{nodes[1], 0, 4}, {nodes[0], 0, 1}};
+        ASSERT_EQ(path_sync.updatePath("A", path_a, 0), PathSync::SUCCESS);
+        ASSERT_EQ(path_sync.updatePath("B", path_b, 0), PathSync::SUCCESS);
+        EXPECT_TRUE(path_sync.detectCycle());
+    }
+}
