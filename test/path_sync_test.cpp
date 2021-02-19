@@ -215,7 +215,6 @@ TEST(path_sync, entited_segment) {
         ASSERT_EQ(path_sync.updatePath("B", path_b, 0), PathSync::SUCCESS);
         EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::SUCCESS);
         EXPECT_EQ(segment.size(), path.size());
-        print_path(segment);
     }
 
     // intersecting path with higher bid
@@ -223,7 +222,6 @@ TEST(path_sync, entited_segment) {
         Path path_b = {{nodes[9], 0, 2}, {nodes[8], 1, 3}};
         ASSERT_EQ(path_sync.updatePath("B", path_b, 1), PathSync::SUCCESS);
         EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::SUCCESS);
-        print_path(segment);
         EXPECT_EQ(segment.size(), path.size() - 1);
     }
 
