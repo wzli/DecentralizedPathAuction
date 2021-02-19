@@ -6,6 +6,8 @@ using namespace decentralized_path_auction;
 void make_pathway(Graph& graph, Graph::Nodes& pathway, Point2D a, Point2D b, size_t n,
         Graph::Node::State state = Graph::Node::DEFAULT);
 
+void print_path(const Path& path);
+
 std::vector<Graph::Nodes> make_test_graph(Graph& graph) {
     /*
         make the graph below:
@@ -232,6 +234,22 @@ TEST(single_path_search, passive_path) {
     path = {{nodes[0][5]}};
     ASSERT_EQ(path_search.iterate(path, 100), PathSearch::SUCCESS);
     EXPECT_EQ(path.back().node, nodes[2][9]);
+}
+
+TEST(single_path_search, passive_divert) {
+    Graph graph;
+    auto nodes = make_test_graph(graph);
+    // set cost limit to 50
+    PathSearch path_search({"B", 50});
+    // set destination with expected travel cost 100
+    ASSERT_EQ(path_search.reset({nodes[0][9]}), PathSearch::SUCCESS);
+    // set source node as no parking
+    nodes[0][0]->state = Graph::Node::NO_PARKING;
+    nodes[0][1]->state = Graph::Node::NO_PARKING;
+    // expect destination to be diverted to nearest parkable node
+    Path path = {{nodes[0][0]}};
+    EXPECT_EQ(path_search.iterateAutoDivert(path, 400), PathSearch::COST_LIMIT_EXCEEDED);
+    EXPECT_EQ(path.back().node, nodes[1][0]);
 }
 
 TEST(single_path_search, multiple_destinations) {

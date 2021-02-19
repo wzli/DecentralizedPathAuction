@@ -126,11 +126,8 @@ PathSync::Error PathSync::validate(const Visit& visit) const {
     if (visit.node->state == Graph::Node::DISABLED) {
         return VISIT_NODE_DISABLED;
     }
-    if (visit.price <= visit.base_price) {
-        return VISIT_PRICE_NOT_ABOVE_BASE_PRICE;
-    }
-    if (visit.base_price < visit.node->auction.getBids().begin()->first) {
-        return VISIT_MIN_PRICE_LESS_THAN_START_PRICE;
+    if (visit.price < visit.node->auction.getBids().begin()->first) {
+        return VISIT_PRICE_LESS_THAN_START_PRICE;
     }
     return SUCCESS;
 }

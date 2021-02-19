@@ -67,8 +67,9 @@ private:
 struct Visit {
     Graph::NodePtr node;
     float time = 0;
-    float price = std::numeric_limits<float>::max();
+    float price = 0;
     float base_price = 0;
+    float cost_estimate = 0;
 };
 
 using Path = std::vector<Visit>;

@@ -6,6 +6,8 @@ using namespace decentralized_path_auction;
 void make_pathway(Graph& graph, Graph::Nodes& pathway, Point2D a, Point2D b, size_t n,
         Graph::Node::State state = Graph::Node::DEFAULT);
 
+void print_path(const Path& path);
+
 TEST(path_sync, move_assign) {
     Graph graph;
     Graph::Nodes nodes;
@@ -44,7 +46,7 @@ TEST(path_sync, update_path) {
     Path path;
     float t = 0;
     for (auto& node : nodes) {
-        path.push_back(Visit{node, t++, 1, 0});
+        path.push_back(Visit{node, t++, 2});
     }
     // input sanity checks
     PathSync path_sync;
@@ -55,13 +57,13 @@ TEST(path_sync, update_path) {
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_NODE_INVALID);
     path[5].node = nodes[5];
 
-    path[5].price = 0;
-    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_PRICE_NOT_ABOVE_BASE_PRICE);
-    path[5].price = 1;
+    path[5].node->state = Graph::Node::DISABLED;
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_NODE_DISABLED);
+    path[5].node->state = Graph::Node::DEFAULT;
 
-    path[5].base_price = -1;
-    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_MIN_PRICE_LESS_THAN_START_PRICE);
-    path[5].base_price = 0;
+    path[5].price *= -1;
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_PRICE_LESS_THAN_START_PRICE);
+    path[5].price *= -1;
 
     path[5].time *= -1;
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::PATH_TIME_DECREASED);
@@ -75,6 +77,13 @@ TEST(path_sync, update_path) {
 
     // reject duplicate bids
     ASSERT_EQ(path_sync.updatePath("B", path, 0), PathSync::VISIT_PRICE_ALREADY_EXIST);
+
+    // reject source node outbid
+    {
+        Path path_b = {path[0]};
+        --path_b[0].price;
+        ASSERT_EQ(path_sync.updatePath("B", path_b, 0), PathSync::SOURCE_NODE_OUTBID);
+    }
 
     // valid update
     for (auto& node : nodes) {
@@ -177,4 +186,50 @@ TEST(path_sync, clear_paths) {
     for (size_t i = 0; i < nodes.size(); ++i) {
         EXPECT_EQ(nodes[i]->auction.getBids().size(), 1u);
     }
+}
+
+TEST(path_sync, entited_segment) {
+    Graph graph;
+    Graph::Nodes nodes;
+    PathSync path_sync;
+    make_pathway(graph, nodes, {0, 0}, {9, 9}, 10);
+    Path path;
+    float t = 0;
+    for (int i = 0; i < 9; ++i) {
+        path.push_back(Visit{nodes[i], t++, 2});
+    }
+    // null check
+    Path segment;
+    ASSERT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::AGENT_ID_NOT_FOUND);
+    // whole path with no competition
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
+    EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::SUCCESS);
+    EXPECT_EQ(segment.size(), path.size());
+    nodes[5]->state = Graph::Node::DISABLED;
+    EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::VISIT_NODE_DISABLED);
+    EXPECT_EQ(segment.size(), 5u);
+    nodes[5]->state = Graph::Node::DEFAULT;
+
+    // intersecting path with lower bid
+    {
+        Path path_b = {{nodes[9], 0, 2}, {nodes[8], 1, 1}};
+        ASSERT_EQ(path_sync.updatePath("B", path_b, 0), PathSync::SUCCESS);
+        EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::SUCCESS);
+        EXPECT_EQ(segment.size(), path.size());
+        print_path(segment);
+    }
+
+    // intersecting path with higher bid
+    {
+        Path path_b = {{nodes[9], 0, 2}, {nodes[8], 1, 3}};
+        ASSERT_EQ(path_sync.updatePath("B", path_b, 1), PathSync::SUCCESS);
+        EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::SUCCESS);
+        print_path(segment);
+        EXPECT_EQ(segment.size(), path.size() - 1);
+    }
+
+    // start node outbid
+    ASSERT_EQ(path_sync.updatePath("C", {{nodes[0], 0, 3}}, 0), PathSync::SUCCESS);
+    EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::SOURCE_NODE_OUTBID);
+    EXPECT_EQ(segment.size(), 0u);
 }

@@ -149,7 +149,7 @@ float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid
 float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Visit& front_visit) {
     const Graph::NodePtr& prev_node = &visit == &front_visit ? nullptr : (&visit - 1)->node;
     float min_cost = std::numeric_limits<float>::max();
-    min_cost_visit = {nullptr};
+    min_cost_visit = {nullptr, 0, min_cost};
     // loop over each adjacent node
     for (auto& adj_node : visit.node->edges) {
         DEBUG_PRINTF("->[%f %f] \r\n", adj_node->position.x(), adj_node->position.y());
@@ -233,6 +233,7 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     bool cost_increased = min_cost > cost_estimate;
     DEBUG_PRINTF("Min ID %lu Base %f Cost %f Prev %f\r\n\r\n", min_cost_visit.node ? baseBid(min_cost_visit).id.id : -1,
             min_cost_visit.base_price, min_cost, cost_estimate);
+    visit.cost_estimate = min_cost;
     cost_estimate = min_cost;
     cost_bid = &bid;
     if (!min_cost_visit.node) {

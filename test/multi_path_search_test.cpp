@@ -14,8 +14,8 @@ std::vector<Graph::Nodes> make_test_graph(Graph& graph);
 
 void print_path(const Path& path) {
     for (auto& visit : path) {
-        printf("{[%.2f %.2f], t: %.2f, p: %.2f, b: %.2f}\r\n", visit.node->position.x(), visit.node->position.y(),
-                visit.time, visit.price, visit.base_price);
+        printf("{[%.2f %.2f], t: %.2f, p: %.2f, b: %.2f c:%.2f}\r\n", visit.node->position.x(),
+                visit.node->position.y(), visit.time, visit.price, visit.base_price, visit.cost_estimate);
     }
     puts("");
 }
@@ -156,12 +156,12 @@ TEST(multi_path_search, dodge) {
     ASSERT_EQ(path_search_b.reset({nodes[0][9]}), PathSearch::SUCCESS);
 
     EXPECT_EQ(path_search_a.iterate(path_a, 400), PathSearch::SUCCESS);
-    print_path(path_a);
+    // print_path(path_a);
     ASSERT_EQ(path_a.back().node, nodes[2][9]);
     ASSERT_EQ(path_sync.updatePath("A", path_a, path_id_a++), PathSync::SUCCESS);
 
     ASSERT_EQ(path_search_b.iterate(path_b, 400), PathSearch::SUCCESS);
-    print_path(path_b);
+    // print_path(path_b);
     ASSERT_EQ(path_b.back().node, nodes[0][9]);
     ASSERT_EQ(path_sync.updatePath("B", path_b, path_id_b++), PathSync::SUCCESS);
     save_paths(path_sync, "dodge.csv");
