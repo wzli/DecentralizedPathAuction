@@ -48,6 +48,8 @@ public:
 
     Error reset(Graph::Nodes nodes);
     Error iterate(Path& path, size_t iterations = 0);
+    // divert destination when cost limit is exceeded
+    Error iterateAutoDivert(Path& path, size_t iterations);
 
     static float travelDistance(const Graph::NodePtr&, const Graph::NodePtr& cur, const Graph::NodePtr& next) {
         return bg::distance(cur->position, next->position);
@@ -55,9 +57,9 @@ public:
 
 private:
     float getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid);
-    float findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Visit& start_visit);
+    float findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Visit& front_visit);
     bool appendMinCostVisit(size_t visit_index, Path& path);
-    bool detectCycle(const Auction::Bid& bid, const Visit& visit, const Visit& start_visit);
+    bool detectCycle(const Auction::Bid& bid, const Visit& visit, const Visit& front_visit);
     bool checkCostLimit(const Visit& visit);
     bool checkTermination(const Visit& visit) const;
     float determinePrice(float base_price, float price_limit, float cost, float alternative_cost) const;

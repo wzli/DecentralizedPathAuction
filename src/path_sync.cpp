@@ -34,6 +34,9 @@ PathSync::Error PathSync::updatePath(
     if (auto path_error = validate(path)) {
         return path_error;
     }
+    if (path.front().node->auction.getHighestBid(agent_id)->first > path.front().price) {
+        return SOURCE_NODE_OUTBID;
+    }
     auto& info = _paths[agent_id];
     // check if bid price is already taken by some other agent
     for (auto& visit : path) {
@@ -107,17 +110,21 @@ PathSync::Error PathSync::getEntitledSegment(const std::string& agent_id, Path& 
     auto& info = found->second;
     assert(info.progress < info.path.size());
     for (auto visit = info.path.begin() + info.progress;
-            visit != info.path.end() && visit->node->state < Graph::Node::DISABLED &&
-            visit->node->auction.getHighestBid()->second.bidder == agent_id;
-            ++visit) {
+            visit != info.path.end() && visit->node->auction.getHighestBid()->second.bidder == agent_id; ++visit) {
+        if (auto visit_error = validate(*visit)) {
+            return visit_error;
+        }
         segment.push_back(*visit);
     }
-    return SUCCESS;
+    return segment.empty() ? SOURCE_NODE_OUTBID : SUCCESS;
 }
 
 PathSync::Error PathSync::validate(const Visit& visit) const {
     if (!Graph::validateNode(visit.node)) {
         return VISIT_NODE_INVALID;
+    }
+    if (visit.node->state == Graph::Node::DISABLED) {
+        return VISIT_NODE_DISABLED;
     }
     if (visit.price <= visit.base_price) {
         return VISIT_PRICE_NOT_ABOVE_BASE_PRICE;

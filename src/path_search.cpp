@@ -120,6 +120,16 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     return ITERATIONS_REACHED;
 }
 
+PathSearch::Error PathSearch::iterateAutoDivert(Path& path, size_t iterations) {
+    switch (auto error = iterate(path, iterations)) {
+        case COST_LIMIT_EXCEEDED:
+            reset({});
+            return std::max(error, iterate(path, iterations));
+        default:
+            return error;
+    }
+}
+
 float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid& bid) {
     auto& [cost_bid, cost_estimate] = _cost_estimates[bid.id];
     if (cost_bid != &bid) {
@@ -136,8 +146,8 @@ float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid
     return cost_estimate;
 }
 
-float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Visit& start_visit) {
-    const Graph::NodePtr& prev_node = &visit == &start_visit ? nullptr : (&visit - 1)->node;
+float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Visit& front_visit) {
+    const Graph::NodePtr& prev_node = &visit == &front_visit ? nullptr : (&visit - 1)->node;
     float min_cost = std::numeric_limits<float>::max();
     min_cost_visit = {nullptr};
     // loop over each adjacent node
@@ -172,7 +182,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
                 continue;
             }
             // skip the bid if it causes cyclic dependencies
-            if (detectCycle(bid, visit, start_visit)) {
+            if (detectCycle(bid, visit, front_visit)) {
                 DEBUG_PRINTF("Cycle Detected\r\n");
                 continue;
             }
@@ -244,10 +254,10 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     return cost_increased;
 }
 
-bool PathSearch::detectCycle(const Auction::Bid& bid, const Visit& visit, const Visit& start_visit) {
+bool PathSearch::detectCycle(const Auction::Bid& bid, const Visit& visit, const Visit& front_visit) {
     _cycle_visits.clear();
     // mark previous visits in path as part of ancestor visits
-    for (const Visit* visit_ptr = &start_visit; visit_ptr != &visit; ++visit_ptr) {
+    for (const Visit* visit_ptr = &front_visit; visit_ptr != &visit; ++visit_ptr) {
         auto idx = 2 * baseBid(*visit_ptr).id;
         _cycle_visits.resize(std::max(_cycle_visits.size(), idx + 2));
         _cycle_visits[idx] = true;
