@@ -17,7 +17,7 @@ class Graph {
 public:
     struct Node {
         const Point2D position;
-        enum State { ENABLED, NO_PARKING, NO_STOPPING, DISABLED, DELETED } state = ENABLED;
+        enum State { DEFAULT, NO_PARKING, NO_STOPPING, DISABLED, DELETED } state = DEFAULT;
         std::vector<std::shared_ptr<Node>> edges = {};
         Auction auction = {};
     };

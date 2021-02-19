@@ -4,7 +4,7 @@
 using namespace decentralized_path_auction;
 
 void make_pathway(Graph& graph, Graph::Nodes& pathway, Point2D a, Point2D b, size_t n,
-        Graph::Node::State state = Graph::Node::ENABLED);
+        Graph::Node::State state = Graph::Node::DEFAULT);
 
 TEST(path_sync, move_assign) {
     Graph graph;

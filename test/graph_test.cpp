@@ -4,7 +4,7 @@
 using namespace decentralized_path_auction;
 
 void make_pathway(Graph& graph, Graph::Nodes& pathway, Point2D a, Point2D b, size_t n,
-        Graph::Node::State state = Graph::Node::ENABLED) {
+        Graph::Node::State state = Graph::Node::DEFAULT) {
     ASSERT_GT(n, 1u);
     auto pos = a;
     auto inc = b;
@@ -166,7 +166,7 @@ TEST(graph, find_nearest_node) {
     Graph graph;
     Graph::Nodes pathway;
     make_pathway(graph, pathway, {0, 0}, {1, 10}, 11, Graph::Node::NO_PARKING);
-    EXPECT_EQ(nullptr, graph.findNearestNode({100, 13}, Graph::Node::ENABLED));
+    EXPECT_EQ(nullptr, graph.findNearestNode({100, 13}, Graph::Node::DEFAULT));
     EXPECT_EQ(pathway.back(), graph.findNearestNode({100, 13}, Graph::Node::NO_PARKING));
     EXPECT_EQ(pathway.front(), graph.findNearestNode({-100, -13}, Graph::Node::NO_PARKING));
     EXPECT_EQ(pathway[5], graph.findNearestNode({0.51, 5.1}, Graph::Node::NO_PARKING));
@@ -174,10 +174,10 @@ TEST(graph, find_nearest_node) {
 
 TEST(graph, find_any_node) {
     Graph graph;
-    EXPECT_FALSE(graph.findAnyNode(Graph::Node::ENABLED));
+    EXPECT_FALSE(graph.findAnyNode(Graph::Node::DEFAULT));
     ASSERT_TRUE(graph.insertNode({0, 0}, Graph::Node::NO_PARKING));
     EXPECT_TRUE(graph.findAnyNode(Graph::Node::NO_PARKING));
-    EXPECT_FALSE(graph.findAnyNode(Graph::Node::ENABLED));
+    EXPECT_FALSE(graph.findAnyNode(Graph::Node::DEFAULT));
 }
 
 TEST(graph, contains_node) {

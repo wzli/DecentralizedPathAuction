@@ -67,7 +67,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
         return SOURCE_NODE_DISABLED;
     }
     // check destination nodes (empty means passive and any node will suffice)
-    if (!_dst_nodes.getNodes().empty() && !_dst_nodes.findAnyNode(Graph::Node::ENABLED)) {
+    if (!_dst_nodes.getNodes().empty() && !_dst_nodes.findAnyNode(Graph::Node::DEFAULT)) {
         return DESTINATION_NODE_NO_PARKING;
     }
     // source visit is required to have the highest bid in auction to claim the source node
@@ -129,7 +129,7 @@ float PathSearch::getCostEstimate(const Graph::NodePtr& node, const Auction::Bid
             cost_estimate = 0;
         } else {
             assert(Graph::validateNode(node));
-            auto nearest_goal = _dst_nodes.findNearestNode(node->position, Graph::Node::ENABLED);
+            auto nearest_goal = _dst_nodes.findNearestNode(node->position, Graph::Node::DEFAULT);
             cost_estimate = _config.travel_time(nullptr, node, nearest_goal) * _config.time_exchange_rate;
         }
     }

@@ -4,7 +4,7 @@
 using namespace decentralized_path_auction;
 
 void make_pathway(Graph& graph, Graph::Nodes& pathway, Point2D a, Point2D b, size_t n,
-        Graph::Node::State state = Graph::Node::ENABLED);
+        Graph::Node::State state = Graph::Node::DEFAULT);
 
 std::vector<Graph::Nodes> make_test_graph(Graph& graph) {
     /*
@@ -75,7 +75,7 @@ TEST(single_path_search, iterate_input_checks) {
     path = {{node}};
     node->state = Graph::Node::DISABLED;
     EXPECT_EQ(path_search.iterate(path), PathSearch::SOURCE_NODE_DISABLED);
-    node->state = Graph::Node::ENABLED;
+    node->state = Graph::Node::DEFAULT;
     Auction::Bid* prev = nullptr;
     ASSERT_EQ(node->auction.insertBid("B", std::numeric_limits<float>::max(), 0, prev), Auction::SUCCESS);
     EXPECT_EQ(path_search.iterate(path), PathSearch::SOURCE_NODE_OCCUPIED);
@@ -166,7 +166,7 @@ TEST(single_path_search, passive_path_manual_iterations) {
             node->state = Graph::Node::NO_PARKING;
         }
     }
-    nodes[2][9]->state = Graph::Node::ENABLED;
+    nodes[2][9]->state = Graph::Node::DEFAULT;
 
     int calls;
     // try to find a passive path to the single parkable node
@@ -216,7 +216,7 @@ TEST(single_path_search, passive_path) {
             node->state = Graph::Node::NO_PARKING;
         }
     }
-    nodes[2][9]->state = Graph::Node::ENABLED;
+    nodes[2][9]->state = Graph::Node::DEFAULT;
 
     // find the only node that allows parking
     Path path = {{nodes[0][0]}};
