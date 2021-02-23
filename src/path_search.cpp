@@ -77,43 +77,46 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     if (path.front().base_price >= std::numeric_limits<float>::max()) {
         return SOURCE_NODE_OCCUPIED;
     }
+    // trivial solution
+    if (checkTermination(path.front())) {
+        path.resize(1);
+        return SUCCESS;
+    }
     // allocate cost lookup
     _cost_estimates.resize(DenseId<Auction::Bid>::count());
     size_t original_path_size = path.size();
     // truncate visits in path that are invalid (node got deleted/disabled or bid got removed)
     path.erase(std::find_if(path.begin() + 1, path.end(),
-                       [](const Visit& visit) {
+                       [this](const Visit& visit) {
                            return !Graph::validateNode(visit.node) || visit.node->state >= Node::DISABLED ||
                                   !visit.node->auction.getBids().count(visit.base_price) ||
-                                  visit.time < (&visit - 1)->time;
+                                  visit.time < (&visit - 1)->time || checkTermination(visit);
                        }),
             path.end());
+    // iterate in reverse order through each visit in path on first pass
+    // use index to iterate since path will be modified at the end of each loop
+    for (int visit_index = path.size() - 1; visit_index >= 0; --visit_index) {
+        appendMinCostVisit(visit_index, path);
+    }
     if (checkCostLimit(path.front())) {
         return COST_LIMIT_EXCEEDED;
     }
     if (checkTermination(path.back())) {
         return SUCCESS;
     }
-    // iterate in reverse order through each visit in path on first pass
-    // use index to iterate since path will be modified at the end of each loop
-    for (int visit_index = path.size() - 1; visit_index >= 0; --visit_index) {
-        appendMinCostVisit(visit_index, path);
-    }
     if (iterations == 0) {
         return path.size() > original_path_size ? PATH_EXTENDED : PATH_CONTRACTED;
     }
     // run through requested iterations
     for (size_t visit_index = path.size() - 1; iterations--; --visit_index) {
-        if (visit_index == path.size() - 1) {
+        // check previous visit if cost increased otherwise start again from last visit
+        if (!appendMinCostVisit(visit_index, path) || visit_index == 0) {
             if (checkCostLimit(path.front())) {
                 return COST_LIMIT_EXCEEDED;
             }
             if (checkTermination(path.back())) {
                 return SUCCESS;
             }
-        }
-        // check previous visit if cost increased otherwise start again from last visit
-        if (!appendMinCostVisit(visit_index, path) || visit_index == 0) {
             visit_index = path.size();
         }
     }

@@ -99,6 +99,11 @@ TEST(single_path_search, trivial_path) {
     ASSERT_EQ(path_search.iterate(path), PathSearch::SUCCESS);
     ASSERT_EQ(path.size(), 1u);
     ASSERT_EQ(path[0].node, nodes[0][0]);
+
+    path = {{nodes[0][0]}, {nodes[0][1]}};
+    ASSERT_EQ(path_search.iterate(path), PathSearch::SUCCESS);
+    ASSERT_EQ(path.size(), 1u);
+    ASSERT_EQ(path[0].node, nodes[0][0]);
 }
 
 TEST(single_path_search, manual_iterations) {
@@ -116,7 +121,7 @@ TEST(single_path_search, manual_iterations) {
         }
         EXPECT_TRUE(error == PathSearch::PATH_EXTENDED || error == PathSearch::PATH_CONTRACTED);
     }
-    EXPECT_EQ(calls, 46);
+    EXPECT_EQ(calls, 45);
     EXPECT_EQ(path.back().node, nodes[2][5]);
 
     // expect a second attempt to take less iterations via previously cached cost estimates
@@ -128,7 +133,7 @@ TEST(single_path_search, manual_iterations) {
         }
         EXPECT_TRUE(error == PathSearch::PATH_EXTENDED || error == PathSearch::PATH_CONTRACTED);
     }
-    EXPECT_EQ(calls, 12);
+    EXPECT_EQ(calls, 11);
     EXPECT_EQ(path.back().node, nodes[2][5]);
 
     // try from a different start location
@@ -140,7 +145,7 @@ TEST(single_path_search, manual_iterations) {
         }
         EXPECT_TRUE(error == PathSearch::PATH_EXTENDED || error == PathSearch::PATH_CONTRACTED);
     }
-    EXPECT_EQ(calls, 16);
+    EXPECT_EQ(calls, 15);
     EXPECT_EQ(path.back().node, nodes[2][5]);
 
     // try a source and different destination
@@ -153,7 +158,7 @@ TEST(single_path_search, manual_iterations) {
         }
         EXPECT_TRUE(error == PathSearch::PATH_EXTENDED || error == PathSearch::PATH_CONTRACTED);
     }
-    EXPECT_EQ(calls, 15);
+    EXPECT_EQ(calls, 14);
     EXPECT_EQ(path.back().node, nodes[1][5]);
 }
 
@@ -179,7 +184,7 @@ TEST(single_path_search, passive_path_manual_iterations) {
         }
         EXPECT_TRUE(error == PathSearch::PATH_EXTENDED || error == PathSearch::PATH_CONTRACTED);
     }
-    EXPECT_EQ(calls, 164);
+    EXPECT_EQ(calls, 163);
     EXPECT_EQ(path.back().node, nodes[2][9]);
 
     // expect a second attempt to take less iterations via previously cached cost estimates
@@ -191,7 +196,7 @@ TEST(single_path_search, passive_path_manual_iterations) {
         }
         EXPECT_TRUE(error == PathSearch::PATH_EXTENDED || error == PathSearch::PATH_CONTRACTED);
     }
-    EXPECT_EQ(calls, 11);
+    EXPECT_EQ(calls, 10);
     EXPECT_EQ(path.back().node, nodes[2][9]);
 
     // try from a different start location
@@ -203,7 +208,7 @@ TEST(single_path_search, passive_path_manual_iterations) {
         }
         EXPECT_TRUE(error == PathSearch::PATH_EXTENDED || error == PathSearch::PATH_CONTRACTED);
     }
-    EXPECT_EQ(calls, 38);
+    EXPECT_EQ(calls, 37);
     EXPECT_EQ(path.back().node, nodes[2][9]);
 }
 
