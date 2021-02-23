@@ -154,7 +154,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
     float min_cost = std::numeric_limits<float>::max();
     min_cost_visit = {nullptr, 0, min_cost};
     // loop over each adjacent node
-    for (auto& adj_node : visit.node->edges) {
+    for (const auto& adj_node : visit.node->edges) {
         DEBUG_PRINTF("->[%f %f] \r\n", adj_node->position.x(), adj_node->position.y());
         // skip disabled nodes
         if (adj_node->state >= Node::DISABLED) {
@@ -200,9 +200,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
             // keep track of lowest cost visit found
             if (cost_estimate < min_cost) {
                 std::swap(cost_estimate, min_cost);
-                min_cost_visit.node = adj_node;
-                min_cost_visit.time = arrival_time;
-                min_cost_visit.base_price = bid_price;
+                min_cost_visit = {adj_node, arrival_time, min_cost_visit.price, bid_price};
             }
             // store second best cost in the price field
             min_cost_visit.price = std::min(cost_estimate, min_cost_visit.price);
@@ -252,6 +250,7 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
             path.resize(visit_index + 2);
         }
         // set next visit to the min cost visit found
+        min_cost_visit.cost_estimate = next_visit.cost_estimate;
         next_visit = std::move(min_cost_visit);
     }
     // WARNING: visit ref variable is invalidated at this point after modifying path vector
