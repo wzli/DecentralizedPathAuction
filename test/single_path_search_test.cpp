@@ -78,9 +78,9 @@ TEST(single_path_search, iterate_input_checks) {
     EXPECT_EQ(path_search.iterate(path), PathSearch::SOURCE_NODE_DISABLED);
     node->state = Node::DEFAULT;
     Auction::Bid* prev = nullptr;
-    ASSERT_EQ(node->auction.insertBid("B", std::numeric_limits<float>::max(), 0, prev), Auction::SUCCESS);
+    ASSERT_EQ(node->auction.insertBid("B", FLT_MAX, 0, prev), Auction::SUCCESS);
     EXPECT_EQ(path_search.iterate(path), PathSearch::SOURCE_NODE_OCCUPIED);
-    ASSERT_EQ(node->auction.removeBid("B", std::numeric_limits<float>::max()), Auction::SUCCESS);
+    ASSERT_EQ(node->auction.removeBid("B", FLT_MAX), Auction::SUCCESS);
     // check success
     EXPECT_EQ(path_search.iterate(path), PathSearch::SUCCESS);
 }

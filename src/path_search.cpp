@@ -73,10 +73,11 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     // source visit is required to have the highest bid in auction to claim the source node
     path.front().time = 0;
     path.front().base_price = src_node->auction.getHighestBid(_config.agent_id)->first;
-    path.front().price = path.front().base_price + _config.price_increment;
-    if (path.front().base_price >= std::numeric_limits<float>::max()) {
+    if (path.front().base_price >= FLT_MAX) {
         return SOURCE_NODE_OCCUPIED;
     }
+    path.front().price = std::max(
+            path.front().base_price + _config.price_increment, std::nextafter(path.front().base_price, FLT_MAX));
     // trivial solution
     if (checkTermination(path.front())) {
         path.resize(1);
@@ -151,7 +152,7 @@ float PathSearch::getCostEstimate(const NodePtr& node, const Auction::Bid& bid) 
 
 float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Visit& front_visit) {
     const NodePtr& prev_node = &visit == &front_visit ? nullptr : (&visit - 1)->node;
-    float min_cost = std::numeric_limits<float>::max();
+    float min_cost = FLT_MAX;
     min_cost_visit = {nullptr, 0, min_cost};
     // loop over each adjacent node
     for (const auto& adj_node : visit.node->edges) {
@@ -210,9 +211,9 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
     if (min_cost_visit.node) {
         auto higher_bid = min_cost_visit.node->auction.getHigherBid(min_cost_visit.base_price, _config.agent_id);
         min_cost_visit.price = determinePrice(min_cost_visit.base_price,
-                higher_bid == min_cost_visit.node->auction.getBids().end() ? std::numeric_limits<float>::max()
-                                                                           : higher_bid->first,
-                min_cost, min_cost_visit.price);
+                higher_bid == min_cost_visit.node->auction.getBids().end() ? FLT_MAX : higher_bid->first, min_cost,
+                min_cost_visit.price);
+        assert(min_cost_visit.price > min_cost_visit.base_price);
     }
     return min_cost;
 }
@@ -293,6 +294,7 @@ bool PathSearch::checkTermination(const Visit& visit) const {
 float PathSearch::determinePrice(float base_price, float price_limit, float cost, float alternative_cost) const {
     assert(cost <= alternative_cost);
     assert(base_price <= price_limit);
+    base_price = std::nextafter(base_price, FLT_MAX);
     // take mid price if it is lower than minimum increment to avoid bidding over slot limit
     float min_price = base_price + _config.price_increment;
     float mid_price = (base_price + price_limit) / 2;
@@ -301,8 +303,7 @@ float PathSearch::determinePrice(float base_price, float price_limit, float cost
     }
     // willing to pay additionally up to the surplus benefit compared to best alternative
     float price = base_price + alternative_cost - cost;
-    if (price <= min_price || (alternative_cost >= std::numeric_limits<float>::max() &&
-                                      price_limit >= std::numeric_limits<float>::max())) {
+    if (price <= min_price || (alternative_cost >= FLT_MAX && price_limit >= FLT_MAX)) {
         return min_price;
     }
     return std::min(price, price_limit - _config.price_increment);

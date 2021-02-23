@@ -38,8 +38,7 @@ public:
     ~PathSync() { clearPaths(); }
     PathSync& operator=(PathSync&& rhs) { return clearPaths(), _paths.swap(rhs._paths), *this; }
 
-    Error updatePath(const std::string& agent_id, const Path& path, size_t path_id,
-            float stop_duration = std::numeric_limits<float>::max());
+    Error updatePath(const std::string& agent_id, const Path& path, size_t path_id, float stop_duration = FLT_MAX);
     Error updateProgress(const std::string& agent_id, size_t progress, size_t path_id);
 
     // remove all bids from auction when path is removed

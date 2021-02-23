@@ -31,7 +31,7 @@ public:
 
     struct Config {
         std::string agent_id;
-        float cost_limit = std::numeric_limits<float>::max();
+        float cost_limit = FLT_MAX;
         float price_increment = 1;
         float time_exchange_rate = 1;
         TravelTime travel_time = travelDistance;
