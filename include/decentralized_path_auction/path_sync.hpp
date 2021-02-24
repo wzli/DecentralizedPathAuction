@@ -16,6 +16,7 @@ public:
         VISIT_PRICE_LESS_THAN_START_PRICE,
         VISIT_BID_ALREADY_REMOVED,
         PATH_TIME_DECREASED,
+        PATH_VISIT_DUPLICATED,
         PATH_EMPTY,
         PATH_ID_STALE,
         PATH_ID_MISMATCH,
@@ -45,7 +46,7 @@ public:
     Error removePath(const std::string& agent_id);
     Error clearPaths();
 
-    bool detectCycle();
+    bool detectCycle() const;
 
     Error getEntitledSegment(const std::string& agent_id, Path& segment) const;
     const Paths& getPaths() const { return _paths; }
@@ -55,7 +56,8 @@ public:
 
 private:
     Paths _paths;
-    std::vector<bool> _cycle_visits;
+    mutable std::vector<bool> _cycle_visits;
+    mutable std::set<std::pair<const Node*, float>> _unique_visits;
 };
 
 }  // namespace decentralized_path_auction

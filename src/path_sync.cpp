@@ -119,7 +119,7 @@ PathSync::Error PathSync::getEntitledSegment(const std::string& agent_id, Path& 
     return segment.empty() ? SOURCE_NODE_OUTBID : SUCCESS;
 }
 
-bool PathSync::detectCycle() {
+bool PathSync::detectCycle() const {
     _cycle_visits.clear();
     for (const auto& info : _paths) {
         assert(info.second.path.size());
@@ -151,6 +151,7 @@ PathSync::Error PathSync::validate(const Path& path) const {
     if (path.empty()) {
         return PATH_EMPTY;
     }
+    _unique_visits.clear();
     auto prev_visit_time = path.front().time;
     for (auto& visit : path) {
         if (auto error = validate(visit)) {
@@ -158,6 +159,9 @@ PathSync::Error PathSync::validate(const Path& path) const {
         }
         if (visit.time < prev_visit_time) {
             return PATH_TIME_DECREASED;
+        }
+        if (!_unique_visits.emplace(visit.node.get(), visit.price).second) {
+            return PATH_VISIT_DUPLICATED;
         }
         prev_visit_time = visit.time;
     }

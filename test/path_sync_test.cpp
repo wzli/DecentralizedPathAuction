@@ -68,6 +68,10 @@ TEST(path_sync, update_path) {
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::PATH_TIME_DECREASED);
     path[5].time *= -1;
 
+    path.push_back(path.back());
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::PATH_VISIT_DUPLICATED);
+    path.pop_back();
+
     // valid insert
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
 
