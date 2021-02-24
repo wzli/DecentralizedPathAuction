@@ -33,11 +33,12 @@ PathSearch::Error PathSearch::Config::validate() const {
 PathSearch::Error PathSearch::reset(Nodes nodes) {
     // reset cost estimates
     _cost_estimates.clear();
+    _fallback_cost_estimates.clear();
     // reset destination nodes
-    _dst_nodes.detachNodes();
+    _dst_nodes.clearNodes();
     for (auto& node : nodes) {
         // verify each destination node
-        if (!Graph::validateNode(node)) {
+        if (!Node::validate(node)) {
             return DESTINATION_NODE_INVALID;
         }
         if (node->state >= Node::NO_PARKING) {
@@ -60,7 +61,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
         return SOURCE_NODE_NOT_PROVIDED;
     }
     auto& src_node = path.front().node;
-    if (!Graph::validateNode(src_node)) {
+    if (!Node::validate(src_node)) {
         return SOURCE_NODE_INVALID;
     }
     if (src_node->state >= Node::DISABLED) {
@@ -89,7 +90,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     // truncate visits in path that are invalid (node got deleted/disabled or bid got removed)
     path.erase(std::find_if(path.begin() + 1, path.end(),
                        [this](const Visit& visit) {
-                           return !Graph::validateNode(visit.node) || visit.node->state >= Node::DISABLED ||
+                           return !Node::validate(visit.node) || visit.node->state >= Node::DISABLED ||
                                   !visit.node->auction.getBids().count(visit.base_price) ||
                                   visit.time < (&visit - 1)->time || checkTermination(visit);
                        }),
@@ -125,6 +126,34 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
 }
 
 PathSearch::Error PathSearch::iterateAutoDivert(Path& path, size_t iterations) {
+#if 1
+
+    // if passive request, ignore
+    if (_dst_nodes.getNodes().empty()) {
+        return iterate(path, iterations);
+    }
+    // divert destination to passive and swap out cost estimates for fallback
+    auto dst_nodes = std::move(_dst_nodes);
+    _cost_estimates.swap(_fallback_cost_estimates);
+    // calculate fallback path
+    if (auto fallback_error = iterate(path, iterations)) {
+        // revert swaps and return if fallback path fails
+        _dst_nodes = std::move(dst_nodes);
+        _cost_estimates.swap(_fallback_cost_estimates);
+        return fallback_error;
+    }
+    _fallback_path = path;
+    _dst_nodes = std::move(dst_nodes);
+    _cost_estimates.swap(_fallback_cost_estimates);
+    _config.cost_limit += _fallback_path.front().cost_estimate;
+    auto error = iterate(path, iterations);
+    _config.cost_limit -= _fallback_path.front().cost_estimate;
+    if (error != SUCCESS) {
+        path.swap(_fallback_path);
+    }
+    return std::max(COST_LIMIT_EXCEEDED, error);
+
+#else
     switch (auto error = iterate(path, iterations)) {
         case COST_LIMIT_EXCEEDED:
             reset({});
@@ -132,6 +161,7 @@ PathSearch::Error PathSearch::iterateAutoDivert(Path& path, size_t iterations) {
         default:
             return error;
     }
+#endif
 }
 
 float PathSearch::getCostEstimate(const NodePtr& node, const Auction::Bid& bid) {
@@ -142,7 +172,7 @@ float PathSearch::getCostEstimate(const NodePtr& node, const Auction::Bid& bid) 
         if (_dst_nodes.getNodes().empty()) {
             cost_estimate = 0;
         } else {
-            assert(Graph::validateNode(node));
+            assert(Node::validate(node));
             auto nearest_goal = _dst_nodes.findNearestNode(node->position, Node::DEFAULT);
             cost_estimate = _config.travel_time(nullptr, node, nearest_goal) * _config.time_exchange_rate;
         }
@@ -223,7 +253,7 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     auto& visit = path[visit_index];
     // remove edges to deleted nodes
     auto& edges = visit.node->edges;
-    edges.erase(std::remove_if(edges.begin(), edges.end(), std::not_fn(Graph::validateNode)), edges.end());
+    edges.erase(std::remove_if(edges.begin(), edges.end(), std::not_fn(Node::validate)), edges.end());
     DEBUG_PRINTF("[%f %f] ID %lu Base %f\r\n", visit.node->position.x(), visit.node->position.y(), baseBid(visit).id.id,
             visit.base_price);
     // find min cost visit

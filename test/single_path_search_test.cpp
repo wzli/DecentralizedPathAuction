@@ -302,3 +302,18 @@ TEST(single_path_search, disabled_node) {
     ASSERT_EQ(path_search.iterate(path, 100), PathSearch::SUCCESS);
     EXPECT_EQ(path.back().node, nodes[2][9]);
 }
+
+TEST(single_path_search, graph_side_effects) {
+    Graph graph;
+    Nodes nodes;
+    make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
+    ASSERT_FALSE(nodes.empty());
+    ASSERT_FALSE(graph.getNodes().empty());
+    {
+        PathSearch path_search({"A"});
+        ASSERT_EQ(path_search.reset({{nodes[0], nodes[9]}}), PathSearch::SUCCESS);
+    }
+    for (auto& node : nodes) {
+        ASSERT_NE(node->state, Node::DELETED);
+    }
+}

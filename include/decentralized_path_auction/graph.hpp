@@ -16,6 +16,8 @@ struct Node {
     enum State { DEFAULT, NO_PARKING, NO_STOPPING, DISABLED, DELETED } state = DEFAULT;
     std::vector<std::shared_ptr<Node>> edges = {};
     Auction auction = {};
+
+    static bool validate(const std::shared_ptr<Node>& node) { return node && node->state != Node::DELETED; }
 };
 
 using NodePtr = std::shared_ptr<Node>;
@@ -31,28 +33,16 @@ struct Visit {
 
 using Path = std::vector<Visit>;
 
-class Graph {
+class NodeRTree {
 public:
     using RTreeNode = std::pair<Point2D, NodePtr>;
     using RTree = bg::index::rtree<RTreeNode, bg::index::rstar<16>>;
 
-    // non-copyable but movable (to force ownership of nodes to a single graph instance)
-    ~Graph() { clearNodes(); }
-    Graph& operator=(Graph&& rhs) { return clearNodes(), _nodes.swap(rhs._nodes), *this; }
-
-    template <class... Args>
-    NodePtr insertNode(Point2D position, Args&&... args) {
-        auto node = NodePtr(new Node{position, std::forward<Args>(args)...});
-        return insertNode(node) ? std::move(node) : nullptr;
-    }
     bool insertNode(NodePtr node);
-    bool removeNode(NodePtr node);
-    bool removeNode(Point2D position) { return removeNode(findNode(position)); }
 
-    // nodes are deleted when cleared but not when detached, must must manually clear
-    // edge links from detached nodes to prevent cyclic shared_ptr memory leak
-    void clearNodes();
-    RTree detachNodes();
+    // virtual to allow derived class to manage node ownership
+    virtual bool removeNode(NodePtr node);
+    virtual void clearNodes() { _nodes.clear(); }
 
     template <class Predicate>
     NodePtr query(const Predicate& predicate) const {
@@ -65,11 +55,28 @@ public:
     NodePtr findAnyNode(Node::State criterion) const;
 
     const RTree& getNodes() const { return _nodes; }
-    bool containsNode(const NodePtr& node) const { return validateNode(node) && (node == findNode(node->position)); }
-    static bool validateNode(const NodePtr& node) { return node && node->state != Node::DELETED; }
+    bool containsNode(const NodePtr& node) const { return Node::validate(node) && (node == findNode(node->position)); }
 
-private:
+protected:
     RTree _nodes;
+};
+
+class Graph : public NodeRTree {
+public:
+    // non-copyable but movable (to force ownership of nodes to a single graph instance)
+    ~Graph() { clearNodes(); }
+    Graph& operator=(Graph&& rhs) { return clearNodes(), _nodes.swap(rhs._nodes), *this; }
+
+    void clearNodes() override;
+    bool removeNode(NodePtr node) override;
+    bool removeNode(Point2D position) { return removeNode(findNode(position)); }
+
+    using NodeRTree::insertNode;
+    template <class... Args>
+    NodePtr insertNode(Point2D position, Args&&... args) {
+        auto node = NodePtr(new Node{position, std::forward<Args>(args)...});
+        return insertNode(node) ? std::move(node) : nullptr;
+    }
 };
 
 }  // namespace decentralized_path_auction

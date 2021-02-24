@@ -135,26 +135,6 @@ TEST(graph, remove_node) {
     ASSERT_TRUE(graph.getNodes().empty());
 }
 
-TEST(graph, detach_nodes) {
-    Graph graph;
-    Nodes nodes;
-    make_pathway(graph, nodes, {0, 0}, {1, 10}, 11);
-    EXPECT_FALSE(nodes.empty());
-    EXPECT_EQ(nodes.size(), graph.getNodes().size());
-    auto detached_nodes = graph.detachNodes();
-    EXPECT_EQ(nodes.size(), detached_nodes.size());
-    EXPECT_TRUE(graph.getNodes().empty());
-    for (auto& node : nodes) {
-        EXPECT_FALSE(node->edges.empty());
-        EXPECT_NE(node->state, Node::DELETED);
-        EXPECT_NE(node.use_count(), 1);
-    }
-    // manually clear cyclic shared pointers
-    for (auto& rt_node : detached_nodes) {
-        rt_node.second->edges.clear();
-    }
-}
-
 TEST(graph, find_node) {
     Graph graph;
     EXPECT_FALSE(graph.findNode({0, 0}));
@@ -192,8 +172,8 @@ TEST(graph, contains_node) {
 
 TEST(graph, validate_node) {
     NodePtr node(new Node{{0, 0}});
-    EXPECT_TRUE(Graph::validateNode(node));
+    EXPECT_TRUE(Node::validate(node));
     node->state = Node::DELETED;
-    EXPECT_FALSE(Graph::validateNode(node));
-    EXPECT_FALSE(Graph::validateNode(nullptr));
+    EXPECT_FALSE(Node::validate(node));
+    EXPECT_FALSE(Node::validate(nullptr));
 }

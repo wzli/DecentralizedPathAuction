@@ -135,7 +135,7 @@ bool PathSync::detectCycle() {
 }
 
 PathSync::Error PathSync::validate(const Visit& visit) const {
-    if (!Graph::validateNode(visit.node)) {
+    if (!Node::validate(visit.node)) {
         return VISIT_NODE_INVALID;
     }
     if (visit.node->state == Node::DISABLED) {

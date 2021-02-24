@@ -41,7 +41,6 @@ public:
 
     PathSearch(Config config)
             : _config(std::move(config)) {}
-    ~PathSearch() { _dst_nodes.detachNodes(); }
 
     Config& editConfig() { return _config; }
 
@@ -64,9 +63,10 @@ private:
     float determinePrice(float base_price, float price_limit, float cost, float alternative_cost) const;
 
     Config _config;
-    Graph _dst_nodes;
+    NodeRTree _dst_nodes;
+    Path _fallback_path;
     std::vector<bool> _cycle_visits;
-    std::vector<std::pair<const Auction::Bid*, float>> _cost_estimates;
+    std::vector<std::pair<const Auction::Bid*, float>> _cost_estimates, _fallback_cost_estimates;
 };
 
 }  // namespace decentralized_path_auction
