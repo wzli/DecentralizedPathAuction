@@ -77,8 +77,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     if (path.front().base_price >= FLT_MAX) {
         return SOURCE_NODE_OCCUPIED;
     }
-    path.front().price = std::max(
-            path.front().base_price + _config.price_increment, std::nextafter(path.front().base_price, FLT_MAX));
+    path.front().price = determinePrice(path.front().base_price, FLT_MAX, 0, FLT_MAX);
     // trivial solution
     if (checkTermination(path.front())) {
         path.resize(1);
