@@ -287,6 +287,8 @@ bool PathSearch::detectCycle(const Auction::Bid& bid, const Visit& visit, const 
         return true;
     }
     // detect cycle of lower bid
+    _cycle_visits[2 * base_bid.id] = true;
+    _cycle_visits[2 * base_bid.id + 1] = false;
     _cycle_visits[2 * bid.id] = false;
     return bid.detectCycle(_cycle_visits, _config.agent_id);
 }
