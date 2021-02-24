@@ -42,12 +42,11 @@ public:
     PathSearch(Config config)
             : _config(std::move(config)) {}
 
-    Config& editConfig() { return _config; }
-
-    Error reset(Nodes nodes);
+    Error reset(Nodes destinations);
     Error iterate(Path& path, size_t iterations = 0);
-    // divert destination when cost limit is exceeded
-    Error iterateAutoDivert(Path& path, size_t iterations);
+    Error iterateFallback(Path& path, size_t iterations);  // divert when cost limit is exceeded
+
+    Config& editConfig() { return _config; }
 
     static float travelDistance(const NodePtr&, const NodePtr& cur, const NodePtr& next) {
         return bg::distance(cur->position, next->position);
@@ -64,7 +63,7 @@ private:
 
     Config _config;
     NodeRTree _dst_nodes;
-    Path _fallback_path;
+
     std::vector<bool> _cycle_visits;
     std::vector<std::pair<const Auction::Bid*, float>> _cost_estimates, _fallback_cost_estimates;
 };

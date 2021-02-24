@@ -37,14 +37,53 @@ bool save_paths(const PathSync& path_sync, const char* file) {
     return !fclose(fp);
 }
 
+struct Agent {
+    PathSearch path_search;
+    Path path;
+    size_t path_id = 0;
+
+    Agent(PathSearch::Config config, const NodePtr& src, Nodes dst)
+            : path_search(std::move(config))
+            , path{{src}} {
+        path_search.reset(std::move(dst));
+    }
+
+    const std::string& id() { return path_search.editConfig().agent_id; }
+};
+
+static void multi_iterate(std::vector<Agent>& agents, int rounds, size_t iterations, bool print = false) {
+    PathSync path_sync;
+    while (--rounds > 0) {
+        for (auto& agent : agents) {
+            auto search_error = agent.path_search.iterateFallback(agent.path, iterations);
+            ASSERT_LE(search_error, PathSearch::COST_LIMIT_EXCEEDED);
+            if (print) {
+                printf("%s error %d\r\n", agent.id().c_str(), search_error);
+                print_path(agent.path);
+            }
+            ASSERT_EQ(path_sync.updatePath(agent.id(), agent.path, agent.path_id++), PathSync::SUCCESS);
+            EXPECT_FALSE(path_sync.detectCycle());
+            if (std::all_of(agents.begin(), agents.end(), [&path_sync](Agent& a) {
+                    Path segment;
+                    return PathSync::SUCCESS == path_sync.getEntitledSegment(a.id(), segment);
+                })) {
+                rounds = 0;
+                break;
+            }
+        }
+    }
+    ASSERT_EQ(rounds, -1);
+}
+
 // TODO:
 // test evading into aile
 // test back and forth path wait dependencies
 
 TEST(multi_path_search, head_on) {
     Graph graph;
-    Nodes nodes;
+    Nodes nodes;  // A------------>A
     // 0-1-2-3-4-5-6-7-8-9
+    //     B<------------B
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
     PathSync path_sync;
     size_t path_id_a = 0;
@@ -59,15 +98,100 @@ TEST(multi_path_search, head_on) {
     ASSERT_EQ(path_search_a.iterate(path_a, 100), PathSearch::SUCCESS);
     ASSERT_EQ(path_a.back().node, nodes[7]);
     ASSERT_EQ(path_sync.updatePath("A", path_a, path_id_a++), PathSync::SUCCESS);
+    EXPECT_FALSE(path_sync.detectCycle());
     // print_path(path_a);
 
     ASSERT_EQ(path_search_b.iterate(path_b, 100), PathSearch::SUCCESS);
-    // print_path(path_b);
+    ASSERT_EQ(path_b.back().node, nodes[2]);
     ASSERT_EQ(path_sync.updatePath("B", path_b, path_id_b++), PathSync::SUCCESS);
-
     EXPECT_FALSE(path_sync.detectCycle());
+    // print_path(path_b);
+
+    // test another round of path bids
+    ASSERT_EQ(path_search_a.reset({nodes[7]}), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search_a.iterate(path_a, 100), PathSearch::SUCCESS);
+    ASSERT_EQ(path_a.back().node, nodes[7]);
+    ASSERT_EQ(path_sync.updatePath("A", path_a, path_id_a++), PathSync::SUCCESS);
+    EXPECT_FALSE(path_sync.detectCycle());
+    // print_path(path_a);
+
+    ASSERT_EQ(path_search_b.reset({nodes[2]}), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search_b.iterate(path_b, 100), PathSearch::SUCCESS);
+    ASSERT_EQ(path_b.back().node, nodes[2]);
+    ASSERT_EQ(path_sync.updatePath("B", path_b, path_id_b++), PathSync::SUCCESS);
+    EXPECT_FALSE(path_sync.detectCycle());
+    // print_path(path_b);
+
     save_paths(path_sync, "head_on.csv");
 }
+
+TEST(multi_path_search, unavoidable_collision0) {
+    // input
+    //   A------------>A
+    // 0-1-2-3-4-5-6-7-8-9
+    //   B<------------B
+    // expect (A wins via higher cost limit)
+    //   A------------>A
+    // 0-1-2-3-4-5-6-7-8-9
+    //                 B>B
+    Graph graph;
+    Nodes nodes;
+    make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
+    {
+        std::vector<Agent> agents = {
+                Agent({"A", 200}, nodes[1], {nodes[8]}),
+                Agent({"B", 100}, nodes[8], {nodes[1]}),
+        };
+        multi_iterate(agents, 10, 100, false);
+        ASSERT_EQ(agents[0].path.back().node, nodes[8]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[9]);
+    }
+    // try again with B first to plan
+    {
+        std::vector<Agent> agents = {
+                Agent({"B", 100}, nodes[8], {nodes[1]}),
+                Agent({"A", 200}, nodes[1], {nodes[8]}),
+        };
+        multi_iterate(agents, 10, 100, false);
+        ASSERT_EQ(agents[0].path.back().node, nodes[9]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[8]);
+    }
+}
+
+TEST(multi_path_search, unavoidable_collision1) {
+    // input
+    // A-------------->A
+    // 0-1-2-3-4-5-6-7-8-9
+    // B<----------------B
+    // expect (A wins via higher desperation)
+    // A-------------->A
+    // 0-1-2-3-4-5-6-7-8-9
+    //                 B>B
+    Graph graph;
+    Nodes nodes;
+    make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
+    {
+        std::vector<Agent> agents = {
+                Agent({"A", 200}, nodes[0], {nodes[8]}),
+                Agent({"B", 200}, nodes[8], {nodes[0]}),
+        };
+        multi_iterate(agents, 10, 100, true);
+        ASSERT_EQ(agents[0].path.back().node, nodes[8]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[9]);
+    }
+    // try again with B first to plan
+    {
+        std::vector<Agent> agents = {
+                Agent({"B", 200}, nodes[8], {nodes[0]}),
+                Agent({"A", 200}, nodes[0], {nodes[8]}),
+        };
+        multi_iterate(agents, 10, 100, true);
+        ASSERT_EQ(agents[0].path.back().node, nodes[9]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[8]);
+    }
+}
+#if 0
+#endif
 
 TEST(multi_path_search, follow) {
     Graph graph;

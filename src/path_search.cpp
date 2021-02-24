@@ -30,13 +30,13 @@ PathSearch::Error PathSearch::Config::validate() const {
     return SUCCESS;
 }
 
-PathSearch::Error PathSearch::reset(Nodes nodes) {
+PathSearch::Error PathSearch::reset(Nodes destinations) {
     // reset cost estimates
     _cost_estimates.clear();
     _fallback_cost_estimates.clear();
     // reset destination nodes
     _dst_nodes.clearNodes();
-    for (auto& node : nodes) {
+    for (auto& node : destinations) {
         // verify each destination node
         if (!Node::validate(node)) {
             return DESTINATION_NODE_INVALID;
@@ -125,43 +125,28 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     return ITERATIONS_REACHED;
 }
 
-PathSearch::Error PathSearch::iterateAutoDivert(Path& path, size_t iterations) {
-#if 1
-
-    // if passive request, ignore
-    if (_dst_nodes.getNodes().empty()) {
-        return iterate(path, iterations);
-    }
-    // divert destination to passive and swap out cost estimates for fallback
+PathSearch::Error PathSearch::iterateFallback(Path& path, size_t iterations) {
+    // calculate fallback path by swapping out destination and cost estimates
     auto dst_nodes = std::move(_dst_nodes);
+    assert(_dst_nodes.getNodes().empty());
     _cost_estimates.swap(_fallback_cost_estimates);
-    // calculate fallback path
-    if (auto fallback_error = iterate(path, iterations)) {
-        // revert swaps and return if fallback path fails
-        _dst_nodes = std::move(dst_nodes);
-        _cost_estimates.swap(_fallback_cost_estimates);
-        return fallback_error;
-    }
-    _fallback_path = path;
+    auto fallback_error = iterate(path, iterations);
     _dst_nodes = std::move(dst_nodes);
     _cost_estimates.swap(_fallback_cost_estimates);
-    _config.cost_limit += _fallback_path.front().cost_estimate;
-    auto error = iterate(path, iterations);
-    _config.cost_limit -= _fallback_path.front().cost_estimate;
-    if (error != SUCCESS) {
-        path.swap(_fallback_path);
+    // return fallback if search failed or input was empty
+    if (fallback_error != SUCCESS || _dst_nodes.getNodes().empty()) {
+        return fallback_error;
     }
-    return std::max(COST_LIMIT_EXCEEDED, error);
-
-#else
-    switch (auto error = iterate(path, iterations)) {
-        case COST_LIMIT_EXCEEDED:
-            reset({});
-            return std::max(error, iterate(path, iterations));
-        default:
-            return error;
+    // calculate normal path taking into account desperation of fallback
+    _config.cost_limit += path.front().cost_estimate;
+    Path normal_path = {path.front()};
+    auto error = iterate(normal_path, iterations);
+    _config.cost_limit -= path.front().cost_estimate;
+    // return normal path if successfully found
+    if (error == SUCCESS) {
+        path = std::move(normal_path);
     }
-#endif
+    return error;
 }
 
 float PathSearch::getCostEstimate(const NodePtr& node, const Auction::Bid& bid) {
@@ -231,7 +216,8 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
             // keep track of lowest cost visit found
             if (cost_estimate < min_cost) {
                 std::swap(cost_estimate, min_cost);
-                min_cost_visit = {adj_node, arrival_time, min_cost_visit.price, bid_price};
+                min_cost_visit = {
+                        adj_node, arrival_time, min_cost_visit.price, bid_price, getCostEstimate(adj_node, bid)};
             }
             // store second best cost in the price field
             min_cost_visit.price = std::min(cost_estimate, min_cost_visit.price);
@@ -280,8 +266,6 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
         if (next_visit.node != min_cost_visit.node || next_visit.base_price != min_cost_visit.base_price) {
             path.resize(visit_index + 2);
         }
-        // set next visit to the min cost visit found
-        min_cost_visit.cost_estimate = next_visit.cost_estimate;
         next_visit = std::move(min_cost_visit);
     }
     // WARNING: visit ref variable is invalidated at this point after modifying path vector

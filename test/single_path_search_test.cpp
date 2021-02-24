@@ -240,7 +240,7 @@ TEST(single_path_search, passive_path) {
     EXPECT_EQ(path.back().node, nodes[2][9]);
 }
 
-TEST(single_path_search, passive_divert) {
+TEST(single_path_search, passive_fallback) {
     Graph graph;
     auto nodes = make_test_graph(graph);
     // set cost limit to 50
@@ -252,7 +252,7 @@ TEST(single_path_search, passive_divert) {
     nodes[0][1]->state = Node::NO_PARKING;
     // expect destination to be diverted to nearest parkable node
     Path path = {{nodes[0][0]}};
-    EXPECT_EQ(path_search.iterateAutoDivert(path, 400), PathSearch::COST_LIMIT_EXCEEDED);
+    EXPECT_EQ(path_search.iterateFallback(path, 400), PathSearch::COST_LIMIT_EXCEEDED);
     EXPECT_EQ(path.back().node, nodes[1][0]);
 }
 
