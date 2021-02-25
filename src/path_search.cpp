@@ -254,8 +254,11 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     visit.cost_estimate = min_cost;
     cost_estimate = min_cost;
     cost_bid = &bid;
-    if (!min_cost_visit.node) {
-        // truncate rest of path if min cost visit is a dead end
+    const auto is_min_cost_visit = [&min_cost_visit](const Visit& v) {
+        return v.node == min_cost_visit.node && v.base_price == min_cost_visit.base_price;
+    };
+    if (!min_cost_visit.node || std::any_of(path.begin(), path.begin() + visit_index, is_min_cost_visit)) {
+        // truncate rest of path if min cost visit is a dead end or has a loop back
         path.resize(visit_index + 1);
     } else if (&visit == &path.back()) {
         // append min cost visit if already at the back of path
@@ -263,7 +266,7 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     } else {
         // truncate path if min cost visit is different from next visit in path
         auto& next_visit = path[visit_index + 1];
-        if (next_visit.node != min_cost_visit.node || next_visit.base_price != min_cost_visit.base_price) {
+        if (!is_min_cost_visit(next_visit)) {
             path.resize(visit_index + 2);
         }
         next_visit = std::move(min_cost_visit);
