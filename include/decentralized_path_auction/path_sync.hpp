@@ -15,6 +15,7 @@ public:
         VISIT_PRICE_ALREADY_EXIST,
         VISIT_PRICE_LESS_THAN_START_PRICE,
         VISIT_BID_ALREADY_REMOVED,
+        PATH_CAUSES_CYCLE,
         PATH_TIME_DECREASED,
         PATH_VISIT_DUPLICATED,
         PATH_EMPTY,
@@ -31,6 +32,7 @@ public:
         Path path;
         size_t path_id = 0;
         size_t progress = 0;
+        float stop_duration = FLT_MAX;
     };
 
     using Paths = std::unordered_map<std::string, PathInfo>;
@@ -49,7 +51,6 @@ public:
     Error getEntitledSegment(const std::string& agent_id, Path& segment) const;
     const Paths& getPaths() const { return _paths; }
 
-    bool detectCycle() const;
     Error validate(const Visit& visit) const;
     Error validate(const Path& path) const;
 

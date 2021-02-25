@@ -2,16 +2,17 @@
 
 namespace decentralized_path_auction {
 
-static void insertBids(const std::string& agent_id, const Path& path, float stop_duration) {
+static const Auction::Bid* insertBids(
+        const std::string& agent_id, Path::const_iterator it, Path::const_iterator end, float stop_duration) {
     Auction::Bid* prev_bid = nullptr;
-    auto next_visit = path.begin();
-    for (auto& visit : path) {
+    for (; it != end; ++it) {
         // convert timestamp to duration
-        float duration = ++next_visit == path.end() ? stop_duration : next_visit->time - visit.time;
-        if (visit.node->auction.insertBid(agent_id, visit.price, duration, prev_bid)) {
-            assert(!"insert bid failed");
+        float duration = it + 1 == end ? stop_duration : (it + 1)->time - it->time;
+        if (it->node->auction.insertBid(agent_id, it->price, duration, prev_bid)) {
+            return nullptr;
         };
     }
+    return prev_bid;
 }
 
 static PathSync::Error removeBids(const std::string& agent_id, Path::const_iterator it, Path::const_iterator end) {
@@ -38,6 +39,10 @@ PathSync::Error PathSync::updatePath(
         return SOURCE_NODE_OUTBID;
     }
     auto& info = _paths[agent_id];
+    // check path id
+    if (path_id <= info.path_id && !info.path.empty()) {
+        return PATH_ID_STALE;
+    }
     // check if bid price is already taken by some other agent
     for (auto& visit : path) {
         auto& bids = visit.node->auction.getBids();
@@ -46,19 +51,21 @@ PathSync::Error PathSync::updatePath(
             return VISIT_PRICE_ALREADY_EXIST;
         }
     }
-    // update path id
-    if (path_id > info.path_id) {
-        info.path_id = path_id;
-    } else if (!info.path.empty()) {
-        return PATH_ID_STALE;
+    // remove old bids and insert new ones
+    auto remove_error = removeBids(agent_id, info.path.begin() + info.progress, info.path.end());
+    auto tail_bid = insertBids(agent_id, path.begin(), path.end(), stop_duration);
+    assert(tail_bid && "insert bid failed");
+    // check if new path causes cycle
+    _cycle_visits.clear();
+    if (tail_bid->head().detectCycle(_cycle_visits)) {
+        // revert bids back to previous path
+        removeBids(agent_id, path.begin(), path.end());
+        insertBids(agent_id, info.path.begin() + info.progress, info.path.end(), info.stop_duration);
+        return PATH_CAUSES_CYCLE;
     }
-    // remove old bids
-    auto error = removeBids(agent_id, info.path.begin() + info.progress, info.path.end());
     // update path
-    info.path = path;
-    info.progress = 0;
-    insertBids(agent_id, path, stop_duration);
-    return error;
+    info = {path, path_id, 0, stop_duration};
+    return remove_error;
 }
 
 PathSync::Error PathSync::updateProgress(const std::string& agent_id, size_t progress, size_t path_id) {
@@ -117,21 +124,6 @@ PathSync::Error PathSync::getEntitledSegment(const std::string& agent_id, Path& 
         segment.push_back(*visit);
     }
     return segment.empty() ? SOURCE_NODE_OUTBID : SUCCESS;
-}
-
-bool PathSync::detectCycle() const {
-    _cycle_visits.clear();
-    for (const auto& info : _paths) {
-        assert(info.second.path.size());
-        auto& visit = info.second.path[info.second.progress];
-        assert(visit.node);
-        auto& bids = visit.node->auction.getBids();
-        auto bid = bids.find(visit.price);
-        if (bid != bids.end() && bid->second.detectCycle(_cycle_visits)) {
-            return true;
-        }
-    }
-    return false;
 }
 
 PathSync::Error PathSync::validate(const Visit& visit) const {

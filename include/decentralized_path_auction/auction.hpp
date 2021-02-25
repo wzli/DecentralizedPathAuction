@@ -80,6 +80,7 @@ struct Auction::Bid {
     // recursive functions
     bool detectCycle(std::vector<bool>& visited, const std::string& exclude_bidder = "") const;
     float totalDuration() const { return duration + (prev ? prev->totalDuration() : 0); };
+    const Auction::Bid& head() const { return prev ? prev->head() : *this; }
 };
 
 }  // namespace decentralized_path_auction
