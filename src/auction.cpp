@@ -103,15 +103,11 @@ Auction::Bids::const_iterator Auction::getHighestBid(const std::string& exclude_
 
 bool Auction::Bid::detectCycle(std::vector<bool>& visited, const std::string& exclude_bidder) const {
     const auto idx = 2 * id;
-    visited.resize(std::max(visited.size(), idx + 2));
+    const auto next_idx = next ? 2 * next->id : 0;
+    visited.resize(std::max(visited.size(), std::max(idx, next_idx) + 2));
     // cycle occured if previously visited ancestor bid was visited again
     if (visited[idx] || visited[idx + 1]) {
         return visited[idx];
-    }
-    // handle special case flag for handling temporary bids inbetween existing bids
-    const auto next_idx = next ? 2 * next->id : visited.size();
-    if (next_idx + 1 < visited.size() && !visited[next_idx + 1]) {
-        visited[next_idx] = false;
     }
     // mark traversed bids as visited
     visited[idx + 1] = true;
@@ -121,7 +117,9 @@ bool Auction::Bid::detectCycle(std::vector<bool>& visited, const std::string& ex
                           // skip the current bid's path if the bidder is excluded
                           (bidder != exclude_bidder &&
                                   ((prev && prev->lower && prev->lower->detectCycle(visited, exclude_bidder)) ||
-                                          (next && next->detectCycle(visited, exclude_bidder))));
+                                          // clear flag on next for temporary bids inbetween existing bids
+                                          (next && (visited[next_idx + 1] || !(visited[next_idx] = false)) &&
+                                                  next->detectCycle(visited, exclude_bidder))));
 }
 
 }  // namespace decentralized_path_auction
