@@ -133,18 +133,18 @@ PathSearch::Error PathSearch::iterateFallback(Path& path, size_t iterations) {
     auto fallback_error = iterate(path, iterations);
     _dst_nodes = std::move(dst_nodes);
     _cost_estimates.swap(_fallback_cost_estimates);
-    // return fallback if search failed or input was empty
-    if (fallback_error != SUCCESS || _dst_nodes.getNodes().empty()) {
+    // return fallback if search input check failed or destination was empty
+    if (fallback_error > ITERATIONS_REACHED || _dst_nodes.getNodes().empty()) {
         return fallback_error;
     }
-    // calculate normal path taking into account desperation of fallback
+    // calculate requested path taking into account desperation of fallback
     _config.cost_limit += path.front().cost_estimate;
-    Path normal_path = {path.front()};
-    auto error = iterate(normal_path, iterations);
+    Path requested_path = {path.front()};
+    auto error = iterate(requested_path, iterations);
     _config.cost_limit -= path.front().cost_estimate;
-    // return normal path if successfully found
-    if (error == SUCCESS) {
-        path = std::move(normal_path);
+    // return requested path if successfully found
+    if (error == SUCCESS || fallback_error != SUCCESS) {
+        path = std::move(requested_path);
     }
     return error;
 }
