@@ -184,12 +184,19 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
         // iterate in reverse order (highest to lowest) through each bid in the auction of the adjacent node
         auto& adj_bids = adj_node->auction.getBids();
         for (auto adj_bid = adj_bids.rbegin(); adj_bid != adj_bids.rend(); ++adj_bid) {
-            // wait duration is atleast as long as the total duration of next higher bid
-            if (adj_bid != adj_bids.rbegin() && std::prev(adj_bid)->second.bidder != _config.agent_id) {
-                wait_duration = std::max(wait_duration, std::prev(adj_bid)->second.totalDuration());
-            }
             auto& [bid_price, bid] = *adj_bid;
             DEBUG_PRINTF("    ID %lu Base %f ", bid.id.id, bid_price);
+            // check if higher bid exists
+            if (adj_bid != adj_bids.rbegin() && std::prev(adj_bid)->second.bidder != _config.agent_id) {
+                auto& [higher_price, higher_bid] = *std::prev(adj_bid);
+                // wait duration is atleast as long as the total duration of next higher bid
+                wait_duration = std::max(wait_duration, higher_bid.totalDuration());
+                // skip if there is no price gap between base bid and next higher bid
+                if (std::nextafter(bid_price, FLT_MAX) >= higher_price) {
+                    DEBUG_PRINTF("No Price Gap\r\n");
+                    continue;
+                }
+            }
             // skip bids that belong to this agent
             if (bid.bidder == _config.agent_id) {
                 DEBUG_PRINTF("Skipped Self\r\n");
@@ -226,10 +233,10 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
     // decide on a bid price for the min cost visit
     if (min_cost_visit.node) {
         auto higher_bid = min_cost_visit.node->auction.getHigherBid(min_cost_visit.base_price, _config.agent_id);
-        min_cost_visit.price = determinePrice(min_cost_visit.base_price,
-                higher_bid == min_cost_visit.node->auction.getBids().end() ? FLT_MAX : higher_bid->first, min_cost,
-                min_cost_visit.price);
+        float higher_price = higher_bid == min_cost_visit.node->auction.getBids().end() ? FLT_MAX : higher_bid->first;
+        min_cost_visit.price = determinePrice(min_cost_visit.base_price, higher_price, min_cost, min_cost_visit.price);
         assert(min_cost_visit.price > min_cost_visit.base_price);
+        assert(min_cost_visit.price < higher_price);
     }
     return min_cost;
 }
