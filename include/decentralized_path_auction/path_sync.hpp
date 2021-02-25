@@ -46,11 +46,10 @@ public:
     Error removePath(const std::string& agent_id);
     Error clearPaths();
 
-    bool detectCycle() const;
-
     Error getEntitledSegment(const std::string& agent_id, Path& segment) const;
     const Paths& getPaths() const { return _paths; }
 
+    bool detectCycle() const;
     Error validate(const Visit& visit) const;
     Error validate(const Path& path) const;
 

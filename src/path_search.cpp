@@ -110,6 +110,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     }
     // run through requested iterations
     for (size_t visit_index = path.size() - 1; iterations--; --visit_index) {
+        DEBUG_PRINTF("IDX %lu ITT %lu\r\n", visit_index, iterations);
         // check previous visit if cost increased otherwise start again from last visit
         if (!appendMinCostVisit(visit_index, path) || visit_index == 0) {
             if (checkCostLimit(path.front())) {
