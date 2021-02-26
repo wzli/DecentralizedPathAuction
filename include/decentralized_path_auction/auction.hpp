@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/lockfree/queue.hpp>
 #include <map>
 #include <string>
 #include <vector>
@@ -44,27 +45,26 @@ private:
 template <class T>
 class DenseId {
 public:
-    DenseId()
-            : id(_free_ids.back()) {
-        _free_ids.pop_back();
-        if (_free_ids.empty()) {
-            _free_ids.push_back(id + 1);
+    DenseId() {
+        if (!_free_ids.pop(_id)) {
+            _id = _count++;
         }
     }
+    ~DenseId() { _free_ids.push(_id); }
     // copy constructor is a hack to allow aggregate construction
     // but copies have different ID since they must be unique for every instance
     DenseId(const DenseId&)
             : DenseId() {}
     DenseId& operator=(const DenseId&) = delete;
-    ~DenseId() { _free_ids.push_back(id); }
 
-    operator size_t() const { return id; }
-    static size_t count() { return _free_ids.front(); }
-
-    const size_t id;
+    operator size_t() const { return _id; }
+    size_t operator()() const { return _id; }
+    static size_t count() { return _count; }
 
 private:
-    inline static std::vector<size_t> _free_ids = {0};
+    size_t _id;
+    static inline std::atomic<size_t> _count{0};
+    static inline boost::lockfree::queue<size_t> _free_ids{0};
 };
 
 struct Auction::Bid {

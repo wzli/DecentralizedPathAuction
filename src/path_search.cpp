@@ -184,7 +184,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
         auto& adj_bids = adj_node->auction.getBids();
         for (auto adj_bid = adj_bids.rbegin(); adj_bid != adj_bids.rend(); ++adj_bid) {
             auto& [bid_price, bid] = *adj_bid;
-            DEBUG_PRINTF("    ID %lu Base %f ", bid.id.id, bid_price);
+            DEBUG_PRINTF("    ID %lu Base %f ", bid.id(), bid_price);
             // check if higher bid exists
             if (adj_bid != adj_bids.rbegin() && std::prev(adj_bid)->second.bidder != _config.agent_id) {
                 auto& [higher_price, higher_bid] = *std::prev(adj_bid);
@@ -246,7 +246,7 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     // remove edges to deleted nodes
     auto& edges = visit.node->edges;
     edges.erase(std::remove_if(edges.begin(), edges.end(), std::not_fn(Node::validate)), edges.end());
-    DEBUG_PRINTF("[%f %f] ID %lu Base %f\r\n", visit.node->position.x(), visit.node->position.y(), baseBid(visit).id.id,
+    DEBUG_PRINTF("[%f %f] ID %lu Base %f\r\n", visit.node->position.x(), visit.node->position.y(), baseBid(visit).id(),
             visit.base_price);
     // find min cost visit
     Visit min_cost_visit;
@@ -254,7 +254,7 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     // update cost estimate of current visit to the min cost of all adjacent visits
     auto& [cost_key, cost_estimate] = _cost_estimates[baseBid(visit).id];
     bool cost_increased = min_cost > cost_estimate;
-    DEBUG_PRINTF("Min ID %lu Base %f Cost %f Prev %f\r\n\r\n", min_cost_visit.node ? baseBid(min_cost_visit).id.id : -1,
+    DEBUG_PRINTF("Min ID %lu Base %f Cost %f Prev %f\r\n\r\n", min_cost_visit.node ? baseBid(min_cost_visit).id() : -1,
             min_cost_visit.base_price, min_cost, cost_estimate);
     visit.cost_estimate = min_cost;
     cost_estimate = min_cost;

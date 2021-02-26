@@ -15,7 +15,7 @@ TEST(bid_chain, dense_id) {
     }
     ids.resize(100);
     for (size_t i = 0; i < ids.size(); ++i) {
-        ASSERT_EQ(i < 50 ? i : 249 - i, ids[i]);
+        EXPECT_EQ(i, ids[i]);
     }
 }
 
