@@ -53,7 +53,9 @@ public:
     }
 
 private:
-    float getCostEstimate(const NodePtr& node, const Auction::Bid& bid);
+    using BidKey = std::tuple<size_t, const Node*, float>;
+
+    float getCostEstimate(const NodePtr& node, float base_price, const Auction::Bid& bid);
     float findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Visit& front_visit);
     bool appendMinCostVisit(size_t visit_index, Path& path);
     bool detectCycle(const Auction::Bid& bid, const Visit& visit, const Visit& front_visit);
@@ -65,7 +67,8 @@ private:
     NodeRTree _dst_nodes;
 
     std::vector<bool> _cycle_visits;
-    std::vector<std::pair<const Auction::Bid*, float>> _cost_estimates, _fallback_cost_estimates;
+    std::vector<std::pair<BidKey, float>> _cost_estimates, _fallback_cost_estimates;
+    size_t _search_nonce = 1;
 };
 
 }  // namespace decentralized_path_auction

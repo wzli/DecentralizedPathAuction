@@ -32,8 +32,7 @@ PathSearch::Error PathSearch::Config::validate() const {
 
 PathSearch::Error PathSearch::reset(Nodes destinations) {
     // reset cost estimates
-    _cost_estimates.clear();
-    _fallback_cost_estimates.clear();
+    ++_search_nonce;
     // reset destination nodes
     _dst_nodes.clearNodes();
     for (auto& node : destinations) {
@@ -149,10 +148,10 @@ PathSearch::Error PathSearch::iterateFallback(Path& path, size_t iterations) {
     return error;
 }
 
-float PathSearch::getCostEstimate(const NodePtr& node, const Auction::Bid& bid) {
-    auto& [cost_bid, cost_estimate] = _cost_estimates[bid.id];
-    if (cost_bid != &bid) {
-        cost_bid = &bid;
+float PathSearch::getCostEstimate(const NodePtr& node, float base_price, const Auction::Bid& bid) {
+    auto& [key, cost_estimate] = _cost_estimates[bid.id];
+    if (key != BidKey{_search_nonce, node.get(), base_price}) {
+        key = {_search_nonce, node.get(), base_price};
         // initialize cost proportional to travel time from node to destination
         if (_dst_nodes.getNodes().empty()) {
             cost_estimate = 0;
@@ -218,13 +217,13 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
             float time_cost = (arrival_time - visit.time) * _config.time_exchange_rate;
             assert(time_cost >= 0);
             // total cost of visit aggregates time cost, price of bid, and estimated cost from adj node to dst
-            float cost_estimate = time_cost + bid_price + getCostEstimate(adj_node, bid);
+            float cost_estimate = time_cost + bid_price + getCostEstimate(adj_node, bid_price, bid);
             DEBUG_PRINTF("Cost %f\r\n", cost_estimate);
             // keep track of lowest cost visit found
             if (cost_estimate < min_cost) {
                 std::swap(cost_estimate, min_cost);
-                min_cost_visit = {
-                        adj_node, arrival_time, min_cost_visit.price, bid_price, getCostEstimate(adj_node, bid)};
+                min_cost_visit = {adj_node, arrival_time, min_cost_visit.price, bid_price,
+                        getCostEstimate(adj_node, bid_price, bid)};
             }
             // store second best cost in the price field
             min_cost_visit.price = std::min(cost_estimate, min_cost_visit.price);
@@ -253,14 +252,13 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     Visit min_cost_visit;
     float min_cost = findMinCostVisit(min_cost_visit, visit, path.front());
     // update cost estimate of current visit to the min cost of all adjacent visits
-    auto& bid = baseBid(visit);
-    auto& [cost_bid, cost_estimate] = _cost_estimates[bid.id];
+    auto& [cost_key, cost_estimate] = _cost_estimates[baseBid(visit).id];
     bool cost_increased = min_cost > cost_estimate;
     DEBUG_PRINTF("Min ID %lu Base %f Cost %f Prev %f\r\n\r\n", min_cost_visit.node ? baseBid(min_cost_visit).id.id : -1,
             min_cost_visit.base_price, min_cost, cost_estimate);
     visit.cost_estimate = min_cost;
     cost_estimate = min_cost;
-    cost_bid = &bid;
+    cost_key = {_search_nonce, visit.node.get(), visit.base_price};
     const auto is_min_cost_visit = [&min_cost_visit](const Visit& v) {
         return v.node == min_cost_visit.node && v.base_price == min_cost_visit.base_price;
     };
@@ -306,7 +304,7 @@ bool PathSearch::detectCycle(const Auction::Bid& bid, const Visit& visit, const 
 
 bool PathSearch::checkCostLimit(const Visit& visit) {
     return !_dst_nodes.getNodes().empty() &&
-           visit.base_price + getCostEstimate(visit.node, baseBid(visit)) > _config.cost_limit;
+           visit.base_price + getCostEstimate(visit.node, visit.base_price, baseBid(visit)) > _config.cost_limit;
 }
 
 bool PathSearch::checkTermination(const Visit& visit) const {
