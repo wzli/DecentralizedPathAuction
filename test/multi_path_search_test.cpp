@@ -63,7 +63,6 @@ void multi_iterate(
                 print_path(agent.path);
             }
             ASSERT_EQ(path_sync.updatePath(agent.id(), agent.path, agent.path_id++, stop_duration), PathSync::SUCCESS);
-            ASSERT_FALSE(path_sync.detectCycle());
             if (std::all_of(agents.begin(), agents.end(), [&path_sync](Agent& a) {
                     Path segment;
                     return PathSync::SUCCESS == path_sync.getEntitledSegment(a.id(), segment);
@@ -182,6 +181,26 @@ TEST(multi_path_search, head_on_desperation_fallback) {
     }
 }
 
+TEST(multi_path_search, duplicate_requests2) {
+    // input
+    // A---------------->A
+    // 0-1-2-3-4-5-6-7-8-9
+    // B<----------------B
+    Graph graph;
+    Nodes nodes;
+    make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
+    {
+        std::vector<Agent> agents = {
+                Agent({"A", 200}, nodes[0], {nodes[9]}),
+                Agent({"B", 200}, nodes[9], {nodes[0]}),
+        };
+        multi_iterate(agents, 5, 100, 10, false);
+        // ASSERT_EQ(agents[0].path.back().node, nodes[9]);
+        // ASSERT_EQ(agents[1].path.back().node, nodes[9]);
+    }
+}
+
+#if 1
 TEST(multi_path_search, duplicate_requests) {
     // input
     // A---------------->A
@@ -201,7 +220,6 @@ TEST(multi_path_search, duplicate_requests) {
     }
 }
 
-#if 1
 TEST(multi_path_search, follow0) {
     // input
     // A---------------->A
@@ -238,7 +256,6 @@ TEST(multi_path_search, follow) {
     ASSERT_EQ(path_b.back().node, nodes[8]);
     ASSERT_EQ(path_sync.updatePath("B", path_b, path_id_b++), PathSync::SUCCESS);
 
-    EXPECT_FALSE(path_sync.detectCycle());
     save_paths(path_sync, "follow.csv");
 }
 
@@ -267,7 +284,6 @@ TEST(multi_path_search, push) {
     ASSERT_EQ(path_b.back().node, nodes[9]);
     ASSERT_EQ(path_sync.updatePath("B", path_b, path_id_b++), PathSync::SUCCESS);
 
-    EXPECT_FALSE(path_sync.detectCycle());
     save_paths(path_sync, "push.csv");
 }
 
@@ -293,8 +309,6 @@ TEST(multi_path_search, dodge) {
     // print_path(path_b);
     ASSERT_EQ(path_b.back().node, nodes[0][9]);
     ASSERT_EQ(path_sync.updatePath("B", path_b, path_id_b++), PathSync::SUCCESS);
-
-    EXPECT_FALSE(path_sync.detectCycle());
 
     save_paths(path_sync, "dodge.csv");
     save_graph(graph, "dodge_graph.csv");
