@@ -56,8 +56,9 @@ public:
 
 private:
     Paths _paths;
-    mutable std::vector<bool> _cycle_visits;
     mutable std::set<std::pair<const Node*, float>> _unique_visits;
+    mutable std::vector<CycleVisit> _cycle_visits;
+    mutable size_t _cycle_nonce = 0;
 };
 
 }  // namespace decentralized_path_auction

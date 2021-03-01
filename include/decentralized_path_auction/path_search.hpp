@@ -53,8 +53,6 @@ public:
     }
 
 private:
-    using BidKey = std::tuple<size_t, const Node*, float>;
-
     float getCostEstimate(const NodePtr& node, float base_price, const Auction::Bid& bid);
     float findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Visit& front_visit);
     bool appendMinCostVisit(size_t visit_index, Path& path);
@@ -66,8 +64,10 @@ private:
     Config _config;
     NodeRTree _dst_nodes;
 
-    std::vector<bool> _cycle_visits;
+    using BidKey = std::tuple<size_t, const Node*, float>;
     std::vector<std::pair<BidKey, float>> _cost_estimates, _fallback_cost_estimates;
+    std::vector<CycleVisit> _cycle_visits;
+    size_t _cycle_nonce = 0;
     size_t _search_nonce = 1;
 };
 

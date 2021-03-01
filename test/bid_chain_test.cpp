@@ -15,7 +15,7 @@ TEST(bid_chain, dense_id) {
     }
     ids.resize(100);
     for (size_t i = 0; i < ids.size(); ++i) {
-        EXPECT_EQ(i, ids[i]);
+        ASSERT_EQ(i, ids[i]);
     }
 }
 
@@ -46,34 +46,29 @@ TEST(bid_chain, total_duration) {
 }
 
 TEST(bid_chain, detect_cycle) {
-    std::vector<bool> visited;
+    std::vector<CycleVisit> visited;
+    size_t cycle_nonce = 0;
     {
         Auction auction(0);
         Auction::Bid* prev = nullptr;
         // single bid should not have any cycles
         EXPECT_EQ(auction.insertBid("A", 1, 0, prev), Auction::SUCCESS);
-        visited.clear();
-        EXPECT_FALSE(prev->detectCycle(visited));
+        EXPECT_FALSE(prev->detectCycle(visited, ++cycle_nonce));
 
         // two consecutive bids in the same auction with inversed order causes cycle
         EXPECT_EQ(auction.insertBid("A", 2, 0, prev), Auction::SUCCESS);
-        visited.clear();
-        ASSERT_TRUE(prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_TRUE(prev->prev->detectCycle(visited));
+        ASSERT_TRUE(prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_TRUE(prev->prev->detectCycle(visited, ++cycle_nonce));
 
         // remove culptrit bid
         prev = prev->prev;
         EXPECT_EQ(auction.removeBid("A", 2), Auction::SUCCESS);
-        visited.clear();
-        EXPECT_FALSE(prev->detectCycle(visited));
+        EXPECT_FALSE(prev->detectCycle(visited, ++cycle_nonce));
 
         // two consecutive bids in the same auction without order inversion still causes cycle
         EXPECT_EQ(auction.insertBid("A", 0.5f, 0, prev), Auction::SUCCESS);
-        visited.clear();
-        EXPECT_TRUE(prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_TRUE(prev->prev->detectCycle(visited));
+        EXPECT_TRUE(prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_TRUE(prev->prev->detectCycle(visited, ++cycle_nonce));
     }
     {
         // auc1  auc2
@@ -90,14 +85,10 @@ TEST(bid_chain, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
         EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
-        visited.clear();
-        EXPECT_FALSE(prev_a->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_b->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_a->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_b->prev->detectCycle(visited));
+        EXPECT_FALSE(prev_a->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_b->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_a->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_b->prev->detectCycle(visited, ++cycle_nonce));
     }
     {
         // auc1  auc2
@@ -114,14 +105,10 @@ TEST(bid_chain, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
         EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
-        visited.clear();
-        EXPECT_FALSE(prev_a->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_b->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_a->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_b->prev->detectCycle(visited));
+        EXPECT_FALSE(prev_a->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_b->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_a->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_b->prev->detectCycle(visited, ++cycle_nonce));
     }
     {
         // auc1  auc2
@@ -138,14 +125,10 @@ TEST(bid_chain, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
         EXPECT_EQ(auc1.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
-        visited.clear();
-        EXPECT_TRUE(prev_a->detectCycle(visited));
-        visited.clear();
-        EXPECT_TRUE(prev_b->detectCycle(visited));
-        visited.clear();
-        EXPECT_TRUE(prev_a->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_TRUE(prev_b->prev->detectCycle(visited));
+        EXPECT_TRUE(prev_a->detectCycle(visited, ++cycle_nonce));
+        EXPECT_TRUE(prev_b->detectCycle(visited, ++cycle_nonce));
+        EXPECT_TRUE(prev_a->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_TRUE(prev_b->prev->detectCycle(visited, ++cycle_nonce));
     }
     {
         // auc1  auc2
@@ -162,14 +145,11 @@ TEST(bid_chain, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("A", 1, 0, prev_a), Auction::SUCCESS);
         EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc1.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
-        visited.clear();
-        EXPECT_TRUE(prev_a->detectCycle(visited));
-        visited.clear();
-        EXPECT_TRUE(prev_b->detectCycle(visited));
-        visited.clear();
-        EXPECT_TRUE(prev_a->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_TRUE(prev_b->prev->detectCycle(visited));
+
+        EXPECT_TRUE(prev_a->detectCycle(visited, ++cycle_nonce));
+        EXPECT_TRUE(prev_b->detectCycle(visited, ++cycle_nonce));
+        EXPECT_TRUE(prev_a->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_TRUE(prev_b->prev->detectCycle(visited, ++cycle_nonce));
     }
     {
         // auc1  auc2
@@ -186,14 +166,11 @@ TEST(bid_chain, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("A", 2, 0, prev_a), Auction::SUCCESS);
         EXPECT_EQ(auc2.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
-        visited.clear();
-        EXPECT_TRUE(prev_a->detectCycle(visited));
-        visited.clear();
-        EXPECT_TRUE(prev_b->detectCycle(visited));
-        visited.clear();
-        EXPECT_TRUE(prev_a->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_TRUE(prev_b->prev->detectCycle(visited));
+
+        EXPECT_TRUE(prev_a->detectCycle(visited, ++cycle_nonce));
+        EXPECT_TRUE(prev_b->detectCycle(visited, ++cycle_nonce));
+        EXPECT_TRUE(prev_a->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_TRUE(prev_b->prev->detectCycle(visited, ++cycle_nonce));
     }
     {
         // auc1        auc2
@@ -214,18 +191,13 @@ TEST(bid_chain, detect_cycle) {
         EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(aucb.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
-        visited.clear();
-        EXPECT_FALSE(prev_a->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_b->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_a->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_b->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_a->prev->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_b->prev->prev->detectCycle(visited));
+
+        EXPECT_FALSE(prev_a->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_b->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_a->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_b->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_a->prev->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_b->prev->prev->detectCycle(visited, ++cycle_nonce));
     }
     {
         // auc1        auc2
@@ -246,18 +218,13 @@ TEST(bid_chain, detect_cycle) {
         EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(aucb.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc2.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
-        visited.clear();
-        EXPECT_FALSE(prev_a->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_b->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_a->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_b->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_a->prev->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_b->prev->prev->detectCycle(visited));
+
+        EXPECT_FALSE(prev_a->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_b->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_a->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_b->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_a->prev->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_b->prev->prev->detectCycle(visited, ++cycle_nonce));
     }
     {
         // auc1        auc2
@@ -278,18 +245,13 @@ TEST(bid_chain, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(aucb.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
-        visited.clear();
-        EXPECT_FALSE(prev_a->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_b->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_a->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_b->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_a->prev->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_b->prev->prev->detectCycle(visited));
+
+        EXPECT_FALSE(prev_a->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_b->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_a->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_b->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_a->prev->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_b->prev->prev->detectCycle(visited, ++cycle_nonce));
     }
     {
         // auc1        auc2
@@ -310,18 +272,13 @@ TEST(bid_chain, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(aucb.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc1.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
-        visited.clear();
-        EXPECT_FALSE(prev_a->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_b->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_a->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_b->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_a->prev->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_FALSE(prev_b->prev->prev->detectCycle(visited));
+
+        EXPECT_FALSE(prev_a->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_b->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_a->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_b->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_a->prev->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_FALSE(prev_b->prev->prev->detectCycle(visited, ++cycle_nonce));
     }
     {
         // auc1        auc2
@@ -342,17 +299,12 @@ TEST(bid_chain, detect_cycle) {
         EXPECT_EQ(auc2.insertBid("B", 1, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(aucb.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
         EXPECT_EQ(auc1.insertBid("B", 2, 0, prev_b), Auction::SUCCESS);
-        visited.clear();
-        EXPECT_TRUE(prev_a->detectCycle(visited));
-        visited.clear();
-        EXPECT_TRUE(prev_b->detectCycle(visited));
-        visited.clear();
-        EXPECT_TRUE(prev_a->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_TRUE(prev_b->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_TRUE(prev_a->prev->prev->detectCycle(visited));
-        visited.clear();
-        EXPECT_TRUE(prev_b->prev->prev->detectCycle(visited));
+
+        EXPECT_TRUE(prev_a->detectCycle(visited, ++cycle_nonce));
+        EXPECT_TRUE(prev_b->detectCycle(visited, ++cycle_nonce));
+        EXPECT_TRUE(prev_a->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_TRUE(prev_b->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_TRUE(prev_a->prev->prev->detectCycle(visited, ++cycle_nonce));
+        EXPECT_TRUE(prev_b->prev->prev->detectCycle(visited, ++cycle_nonce));
     }
 }

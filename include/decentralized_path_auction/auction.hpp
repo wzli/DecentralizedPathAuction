@@ -67,6 +67,11 @@ private:
     static inline boost::lockfree::queue<size_t> _free_ids{0};
 };
 
+struct CycleVisit {
+    uint64_t nonce : 62;
+    uint8_t in_cycle : 2;
+};
+
 struct Auction::Bid {
     std::string bidder;
     float duration = 0;
@@ -78,7 +83,7 @@ struct Auction::Bid {
     Bid* lower = nullptr;
 
     // recursive functions
-    bool detectCycle(std::vector<bool>& visited, const std::string& exclude_bidder = "") const;
+    bool detectCycle(std::vector<CycleVisit>& visits, size_t nonce, const std::string& exclude_bidder = "") const;
     float totalDuration() const { return duration + (prev ? prev->totalDuration() : 0); };
     const Auction::Bid& head() const { return prev ? prev->head() : *this; }
 };

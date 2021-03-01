@@ -101,25 +101,28 @@ Auction::Bids::const_iterator Auction::getHighestBid(const std::string& exclude_
     return bid;
 }
 
-bool Auction::Bid::detectCycle(std::vector<bool>& visited, const std::string& exclude_bidder) const {
-    const auto idx = 2 * id;
-    const auto next_idx = next ? 2 * next->id : 0;
-    visited.resize(std::max(visited.size(), std::max(idx, next_idx) + 2));
+bool Auction::Bid::detectCycle(std::vector<CycleVisit>& visits, size_t nonce, const std::string& exclude_bidder) const {
+    visits.resize(DenseId<Bid>::count());
     // cycle occured if previously visited ancestor bid was visited again
-    if (visited[idx] || visited[idx + 1]) {
-        return visited[idx];
+    if (visits[id].nonce == nonce) {
+        return visits[id].in_cycle;
     }
     // mark traversed bids as visited
-    visited[idx + 1] = true;
-    visited[idx] = true;
+    visits[id].nonce = nonce;
+    visits[id].in_cycle = 1;
     // detect cycle for next bids in time (first by auction rank, then by path sequence)
-    return visited[idx] = (lower && lower->detectCycle(visited, exclude_bidder)) ||
-                          // skip the current bid's path if the bidder is excluded
-                          (bidder != exclude_bidder &&
-                                  ((prev && prev->lower && prev->lower->detectCycle(visited, exclude_bidder)) ||
-                                          // clear flag on next for temporary bids inbetween existing bids
-                                          (next && (visited[next_idx + 1] || !(visited[next_idx] = false)) &&
-                                                  next->detectCycle(visited, exclude_bidder))));
+    return (visits[id].in_cycle =
+                    // detect cycle at next lower bid
+            (lower && lower->detectCycle(visits, nonce, exclude_bidder)) ||
+            // skip the current bid's path if the bidder is excluded
+            (bidder != exclude_bidder &&
+                    // detect cycle at next lower bid of previous bid
+                    ((prev && prev->lower && prev->lower->detectCycle(visits, nonce, exclude_bidder)) ||
+                            // clear flag on next bid for temporary bids inbetween existing bids
+                            (next && ((visits[next->id].nonce == nonce && visits[next->id].in_cycle & 2 &&
+                                              --visits[next->id].nonce),
+                                             // detect cycle at next bid
+                                             next->detectCycle(visits, nonce, exclude_bidder))))));
 }
 
 }  // namespace decentralized_path_auction

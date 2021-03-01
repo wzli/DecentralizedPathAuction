@@ -56,8 +56,7 @@ PathSync::Error PathSync::updatePath(
     auto tail_bid = insertBids(agent_id, path.begin(), path.end(), stop_duration);
     assert(tail_bid && "insert bid failed");
     // check if new path causes cycle
-    _cycle_visits.clear();
-    if (tail_bid->head().detectCycle(_cycle_visits)) {
+    if (tail_bid->head().detectCycle(_cycle_visits, ++_cycle_nonce)) {
         // revert bids back to previous path
         removeBids(agent_id, path.begin(), path.end());
         insertBids(agent_id, info.path.begin() + info.progress, info.path.end(), info.stop_duration);
