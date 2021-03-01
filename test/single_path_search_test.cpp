@@ -244,7 +244,7 @@ TEST(single_path_search, passive_fallback) {
     Graph graph;
     auto nodes = make_test_graph(graph);
     // set cost limit to 50
-    PathSearch path_search({"B", 50});
+    PathSearch path_search({"B"});
     // set destination with expected travel cost 100
     ASSERT_EQ(path_search.reset({nodes[0][9]}), PathSearch::SUCCESS);
     // set source node as no parking
@@ -252,7 +252,7 @@ TEST(single_path_search, passive_fallback) {
     nodes[0][1]->state = Node::NO_PARKING;
     // expect destination to be diverted to nearest parkable node
     Path path = {{nodes[0][0]}};
-    EXPECT_EQ(path_search.iterateFallback(path, 400), PathSearch::COST_LIMIT_EXCEEDED);
+    EXPECT_EQ(path_search.iterate(path, 400, 50), PathSearch::FALLBACK_DIVERTED);
     EXPECT_EQ(path.back().node, nodes[1][0]);
 }
 

@@ -9,6 +9,7 @@ class PathSearch {
 public:
     enum Error {
         SUCCESS,
+        FALLBACK_DIVERTED,
         COST_LIMIT_EXCEEDED,
         ITERATIONS_REACHED,
         PATH_EXTENDED,
@@ -20,6 +21,7 @@ public:
         SOURCE_NODE_INVALID,
         SOURCE_NODE_DISABLED,
         SOURCE_NODE_OCCUPIED,
+        FALLBACK_COST_NEGATIVE,
         CONFIG_AGENT_ID_EMPTY,
         CONFIG_COST_LIMIT_NON_POSITIVE,
         CONFIG_PRICE_INCREMENT_NON_POSITIVE,
@@ -44,7 +46,7 @@ public:
 
     Error reset(Nodes destinations);
     Error iterate(Path& path, size_t iterations = 0);
-    Error iterateFallback(Path& path, size_t iterations);  // divert when cost limit is exceeded
+    Error iterate(Path& path, size_t iterations, float fallback_cost);
 
     Config& editConfig() { return _config; }
 

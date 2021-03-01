@@ -40,29 +40,33 @@ bool save_paths(const PathSync& path_sync, const char* file) {
 struct Agent {
     PathSearch path_search;
     Path path;
+    float fallback_cost;
+    float stop_duration;
     size_t path_id = 0;
 
-    Agent(PathSearch::Config config, const NodePtr& src, Nodes dst)
+    Agent(PathSearch::Config config, const NodePtr& src, Nodes dst, float fb_cost = FLT_MAX, float stop_dur = FLT_MAX)
             : path_search(std::move(config))
-            , path{{src}} {
+            , path{{src}}
+            , fallback_cost(fb_cost)
+            , stop_duration(stop_dur) {
         path_search.reset(std::move(dst));
     }
 
     const std::string& id() { return path_search.editConfig().agent_id; }
 };
 
-void multi_iterate(
-        std::vector<Agent>& agents, int rounds, size_t iterations, float stop_duration = FLT_MAX, bool print = false) {
+void multi_iterate(std::vector<Agent>& agents, int rounds, size_t iterations, bool print = false) {
     PathSync path_sync;
     while (--rounds > 0) {
         for (auto& agent : agents) {
-            auto search_error = agent.path_search.iterateFallback(agent.path, iterations);
+            auto search_error = agent.path_search.iterate(agent.path, iterations, agent.fallback_cost);
             ASSERT_LE(search_error, PathSearch::ITERATIONS_REACHED);
             if (print) {
                 printf("%s error %d\r\n", agent.id().c_str(), search_error);
                 print_path(agent.path);
             }
-            ASSERT_EQ(path_sync.updatePath(agent.id(), agent.path, agent.path_id++, stop_duration), PathSync::SUCCESS);
+            ASSERT_EQ(path_sync.updatePath(agent.id(), agent.path, agent.path_id++, agent.stop_duration),
+                    PathSync::SUCCESS);
             if (std::all_of(agents.begin(), agents.end(), [&path_sync](Agent& a) {
                     Path segment;
                     return PathSync::SUCCESS == path_sync.getEntitledSegment(a.id(), segment);
@@ -120,7 +124,7 @@ TEST(multi_path_search, head_on_cost_fallback) {
     //   A------------>A
     // 0-1-2-3-4-5-6-7-8-9
     //   B<------------B
-    // expect (A wins via higher cost limit)
+    // expect (A wins via higher fallback cost)
     //   A------------>A
     // 0-1-2-3-4-5-6-7-8-9
     //                 B>B
@@ -129,8 +133,8 @@ TEST(multi_path_search, head_on_cost_fallback) {
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
     {
         std::vector<Agent> agents = {
-                Agent({"A", 200}, nodes[1], {nodes[8]}),
-                Agent({"B", 100}, nodes[8], {nodes[1]}),
+                Agent({"A"}, nodes[1], {nodes[8]}, 200),
+                Agent({"B"}, nodes[8], {nodes[1]}, 100),
         };
         multi_iterate(agents, 10, 100);
         ASSERT_EQ(agents[0].path.back().node, nodes[8]);
@@ -139,8 +143,8 @@ TEST(multi_path_search, head_on_cost_fallback) {
     // try again with B first to plan
     {
         std::vector<Agent> agents = {
-                Agent({"B", 100}, nodes[8], {nodes[1]}),
-                Agent({"A", 200}, nodes[1], {nodes[8]}),
+                Agent({"B"}, nodes[8], {nodes[1]}, 100),
+                Agent({"A"}, nodes[1], {nodes[8]}, 200),
         };
         multi_iterate(agents, 10, 100);
         ASSERT_EQ(agents[0].path.back().node, nodes[9]);
@@ -148,12 +152,12 @@ TEST(multi_path_search, head_on_cost_fallback) {
     }
 }
 
-TEST(multi_path_search, head_on_desperation_fallback) {
+TEST(multi_path_search, head_on_desperate_fallback) {
     // input
     // A-------------->A
     // 0-1-2-3-4-5-6-7-8-9
     // B<----------------B
-    // expect (A wins via higher desperation)
+    // expect (A wins via higher fallback desperation)
     // A-------------->A
     // 0-1-2-3-4-5-6-7-8-9
     //                 B>B
@@ -162,8 +166,8 @@ TEST(multi_path_search, head_on_desperation_fallback) {
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
     {
         std::vector<Agent> agents = {
-                Agent({"A", 200}, nodes[0], {nodes[8]}),
-                Agent({"B", 200}, nodes[8], {nodes[0]}),
+                Agent({"A"}, nodes[0], {nodes[8]}, 200),
+                Agent({"B"}, nodes[8], {nodes[0]}, 200),
         };
         multi_iterate(agents, 10, 100);
         ASSERT_EQ(agents[0].path.back().node, nodes[8]);
@@ -181,26 +185,39 @@ TEST(multi_path_search, head_on_desperation_fallback) {
     }
 }
 
-TEST(multi_path_search, duplicate_requests2) {
+TEST(multi_path_search, head_on_cost_limit) {
     // input
     // A---------------->A
     // 0-1-2-3-4-5-6-7-8-9
     // B<----------------B
+    // expect (B gives up planning due to lower cost limit)
+    // A---------------->A
+    // 0-1-2-3-4-5-6-7-8-9
+    //                   B
     Graph graph;
     Nodes nodes;
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
     {
         std::vector<Agent> agents = {
                 Agent({"A", 200}, nodes[0], {nodes[9]}),
-                Agent({"B", 200}, nodes[9], {nodes[0]}),
+                Agent({"B", 100}, nodes[9], {nodes[0]}),
         };
-        multi_iterate(agents, 5, 100, 10, false);
-        // ASSERT_EQ(agents[0].path.back().node, nodes[9]);
-        // ASSERT_EQ(agents[1].path.back().node, nodes[9]);
+        multi_iterate(agents, 5, 100);
+        ASSERT_EQ(agents[0].path.back().node, nodes[9]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[9]);
+    }
+    // try again with B first to plan
+    {
+        std::vector<Agent> agents = {
+                Agent({"B", 100}, nodes[9], {nodes[0]}),
+                Agent({"A", 200}, nodes[0], {nodes[9]}),
+        };
+        multi_iterate(agents, 5, 100);
+        ASSERT_EQ(agents[0].path.back().node, nodes[9]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[9]);
     }
 }
 
-#if 1
 TEST(multi_path_search, duplicate_requests) {
     // input
     // A---------------->A
@@ -211,15 +228,16 @@ TEST(multi_path_search, duplicate_requests) {
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
     {
         std::vector<Agent> agents = {
-                Agent({"A"}, nodes[1], {nodes[9]}),
-                Agent({"B"}, nodes[1], {nodes[9]}),
+                Agent({"A"}, nodes[1], {nodes[9]}, FLT_MAX, 10),
+                Agent({"B"}, nodes[1], {nodes[9]}, FLT_MAX, 10),
         };
-        multi_iterate(agents, 5, 100, 10, true);
+        multi_iterate(agents, 5, 100, true);
         ASSERT_EQ(agents[0].path.back().node, nodes[9]);
         ASSERT_EQ(agents[1].path.back().node, nodes[9]);
     }
 }
 
+#if 0
 TEST(multi_path_search, follow0) {
     // input
     // A---------------->A

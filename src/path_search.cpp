@@ -125,7 +125,10 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     return ITERATIONS_REACHED;
 }
 
-PathSearch::Error PathSearch::iterateFallback(Path& path, size_t iterations) {
+PathSearch::Error PathSearch::iterate(Path& path, size_t iterations, float fallback_cost) {
+    if (fallback_cost < 0) {
+        return FALLBACK_COST_NEGATIVE;
+    }
     // calculate fallback path by swapping out destination and cost estimates
     auto dst_nodes = std::move(_dst_nodes);
     assert(_dst_nodes.getNodes().empty());
@@ -137,15 +140,23 @@ PathSearch::Error PathSearch::iterateFallback(Path& path, size_t iterations) {
     if (fallback_error > ITERATIONS_REACHED || _dst_nodes.getNodes().empty()) {
         return fallback_error;
     }
-    // calculate requested path taking into account desperation of fallback
-    _config.cost_limit += path.front().cost_estimate;
+    // cost of requested path should not exceed cost of fallback option
+    float cost_limit = std::min(path.front().cost_estimate + fallback_cost, _config.cost_limit);
+    std::swap(_config.cost_limit, cost_limit);
     Path requested_path = {path.front()};
     auto error = iterate(requested_path, iterations);
-    _config.cost_limit -= path.front().cost_estimate;
+    std::swap(_config.cost_limit, cost_limit);
     // return requested path if successfully found
-    if (error == SUCCESS || fallback_error != SUCCESS) {
+    if (error == SUCCESS) {
         path = std::move(requested_path);
+        return SUCCESS;
     }
+    // return fallback path if succesfully found
+    if (fallback_error == SUCCESS) {
+        return FALLBACK_DIVERTED;
+    }
+    // stay if one place if both requested and fallback paths fail
+    path.resize(1);
     return error;
 }
 
@@ -301,7 +312,7 @@ bool PathSearch::detectCycle(const Auction::Bid& bid, const Visit& visit, const 
 }
 
 bool PathSearch::checkCostLimit(const Visit& visit) {
-    return !_dst_nodes.getNodes().empty() && visit.base_price + visit.cost_estimate > _config.cost_limit;
+    return visit.base_price + visit.cost_estimate > _config.cost_limit;
 }
 
 bool PathSearch::checkTermination(const Visit& visit) const {
