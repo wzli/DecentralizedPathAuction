@@ -46,7 +46,7 @@ TEST(bid_chain, total_duration) {
 }
 
 TEST(bid_chain, detect_cycle) {
-    std::vector<CycleVisit> visited;
+    std::vector<CycleVisit> visited(100);
     size_t cycle_nonce = 0;
     {
         Auction auction(0);
