@@ -19,29 +19,42 @@ TEST(bid_chain, dense_id) {
     }
 }
 
-TEST(bid_chain, total_duration) {
+TEST(bid_chain, sum_prev_duration) {
     Auction auction(0);
     Auction::Bid* prev = nullptr;
     for (size_t i = 1; i <= 10; ++i) {
         EXPECT_EQ(auction.insertBid("A", i, 1, prev), Auction::SUCCESS);
     }
     for (size_t i = 0; i < auction.getBids().size(); ++i) {
-        EXPECT_EQ(std::next(auction.getBids().begin(), i)->second.totalDuration(), i);
+        EXPECT_EQ(std::next(auction.getBids().begin(), i)->second.sumPrevDuration(), i);
     }
     // remove middle
     EXPECT_EQ(auction.removeBid("A", 5), Auction::SUCCESS);
     for (size_t i = 0; i < auction.getBids().size(); ++i) {
-        EXPECT_EQ(std::next(auction.getBids().begin(), i)->second.totalDuration(), i);
+        EXPECT_EQ(std::next(auction.getBids().begin(), i)->second.sumPrevDuration(), i);
     }
     // remove start
     EXPECT_EQ(auction.removeBid("A", 1), Auction::SUCCESS);
     for (size_t i = 0; i < auction.getBids().size(); ++i) {
-        EXPECT_EQ(std::next(auction.getBids().begin(), i)->second.totalDuration(), i);
+        EXPECT_EQ(std::next(auction.getBids().begin(), i)->second.sumPrevDuration(), i);
     }
     // remove end
     EXPECT_EQ(auction.removeBid("A", 10), Auction::SUCCESS);
     for (size_t i = 0; i < auction.getBids().size(); ++i) {
-        EXPECT_EQ(std::next(auction.getBids().begin(), i)->second.totalDuration(), i);
+        EXPECT_EQ(std::next(auction.getBids().begin(), i)->second.sumPrevDuration(), i);
+    }
+}
+
+TEST(bid_chain, wait_duration) {
+    std::array<Auction, 10> auctions = {0};
+    Auction::Bid* prev = nullptr;
+    for (size_t i = 1; i < auctions.size(); ++i) {
+        EXPECT_EQ(auctions[i].insertBid("A", i, 1, prev), Auction::SUCCESS);
+    }
+    prev = nullptr;
+    EXPECT_EQ(auctions[5].insertBid("b", 100, 100, prev), Auction::SUCCESS);
+    for (size_t i = 0; i < auctions.size(); ++i) {
+        EXPECT_EQ(auctions[i].getBids().begin()->second.waitDuration(), i + (i >= 5) * 95);
     }
 }
 

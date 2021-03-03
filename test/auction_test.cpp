@@ -22,6 +22,9 @@ static void check_auction_links(const Auction::Bids& bids) {
         }
         ASSERT_TRUE(bid->lower);
         EXPECT_EQ(bid->lower->next, bid->lower == &bids.begin()->second ? nullptr : bid);
+        if (bid->higher) {
+            EXPECT_EQ(bid->higher->prev, bid);
+        }
     }
     EXPECT_EQ(i + 1, bids.size());
 }

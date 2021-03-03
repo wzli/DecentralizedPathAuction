@@ -81,10 +81,12 @@ struct Auction::Bid {
     Bid* prev = nullptr;
     Bid* next = nullptr;
     Bid* lower = nullptr;
+    Bid* higher = nullptr;
 
     // recursive functions
     bool detectCycle(std::vector<CycleVisit>& visits, size_t nonce, const std::string& exclude_bidder = "") const;
-    float totalDuration() const { return duration + (prev ? prev->totalDuration() : 0); };
+    float waitDuration(size_t stack_limit = 0) const;
+    float sumPrevDuration() const { return duration + (prev ? prev->sumPrevDuration() : 0); }
     const Auction::Bid& head() const { return prev ? prev->head() : *this; }
 };
 

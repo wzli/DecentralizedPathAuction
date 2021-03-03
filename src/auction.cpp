@@ -39,7 +39,7 @@ Auction::Error Auction::insertBid(const std::string& bidder, float price, float 
     if (!result) {
         return PRICE_ALREADY_EXIST;
     }
-    // update prev link
+    // update prev and next link
     if (prev) {
         if ((it->second.next = prev->next)) {
             prev->next->prev = &it->second;
@@ -48,11 +48,14 @@ Auction::Error Auction::insertBid(const std::string& bidder, float price, float 
     }
     it->second.prev = prev;
     prev = &it->second;
-    // store link to next highest bid
+    // update higher and lower link
     if (std::next(it) != _bids.end()) {
         std::next(it)->second.lower = &it->second;
+        it->second.higher = &std::next(it)->second;
     }
     // start bid must exist
+    assert(std::prev(it) != _bids.end());
+    std::prev(it)->second.higher = &it->second;
     it->second.lower = &std::prev(it)->second;
     return SUCCESS;
 }
@@ -81,6 +84,9 @@ Auction::Error Auction::removeBid(const std::string& bidder, float price) {
     if (std::next(found) != _bids.end()) {
         std::next(found)->second.lower = bid.lower;
     }
+    assert(std::prev(found) != _bids.end());
+    std::prev(found)->second.higher = bid.higher;
+    // erase bid
     _bids.erase(found);
     return SUCCESS;
 }
@@ -123,6 +129,12 @@ bool Auction::Bid::detectCycle(std::vector<CycleVisit>& visits, size_t nonce, co
                                               --visits[next->id].nonce),
                                              // detect cycle at next bid
                                              next->detectCycle(visits, nonce, exclude_bidder))))));
+}
+
+float Auction::Bid::waitDuration(size_t stack_limit) const {
+    return --stack_limit ? std::max(duration + (prev ? prev->waitDuration(stack_limit) : 0),
+                                   higher ? higher->waitDuration(stack_limit) : 0)
+                         : std::numeric_limits<float>::max();
 }
 
 }  // namespace decentralized_path_auction
