@@ -131,10 +131,17 @@ bool Auction::Bid::detectCycle(std::vector<CycleVisit>& visits, size_t nonce, co
                                              next->detectCycle(visits, nonce, exclude_bidder))))));
 }
 
-float Auction::Bid::waitDuration(size_t stack_limit) const {
-    return --stack_limit ? std::max(duration + (prev ? prev->waitDuration(stack_limit) : 0),
-                                   higher ? higher->waitDuration(stack_limit) : 0)
-                         : std::numeric_limits<float>::max();
+float Auction::Bid::waitDuration(std::vector<bool>& visits, const std::string& exclude_bidder) const {
+    assert(visits.size() >= DenseId<Bid>::count());
+    if (visits[id]) {
+        return std::numeric_limits<float>::max();
+    }
+    visits[id] = true;
+    float higher_wait_duration = higher ? higher->waitDuration(visits, exclude_bidder) : 0;
+    float prev_wait_duration =
+            bidder == exclude_bidder ? 0 : (duration + (prev ? prev->waitDuration(visits, exclude_bidder) : 0));
+    visits[id] = false;
+    return std::max(higher_wait_duration, prev_wait_duration);
 }
 
 }  // namespace decentralized_path_auction

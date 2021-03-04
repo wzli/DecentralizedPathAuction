@@ -84,6 +84,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     }
     // allocate cost lookup
     _cost_estimates.resize(DenseId<Auction::Bid>::count());
+    _wait_duration_visits.resize(DenseId<Auction::Bid>::count());
     _cycle_visits.resize(DenseId<Auction::Bid>::count());
     size_t original_path_size = path.size();
     // truncate visits in path that are invalid (node got deleted/disabled or bid got removed)
@@ -192,37 +193,38 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
         // calculate the expected time to arrive at the adjacent node (without wait)
         float earliest_arrival_time = visit.time + _config.travel_time(prev_node, visit.node, adj_node);
         assert(earliest_arrival_time > visit.time && "travel time must be positive");
-        float wait_duration = 0;
         // iterate in reverse order (highest to lowest) through each bid in the auction of the adjacent node
         auto& adj_bids = adj_node->auction.getBids();
-        for (auto adj_bid = adj_bids.rbegin(); adj_bid != adj_bids.rend(); ++adj_bid) {
-            auto& [bid_price, bid] = *adj_bid;
+        auto higher_bid = adj_bids.begin();
+        for (auto& [bid_price, bid] : adj_bids) {
+            ++higher_bid;
             DEBUG_PRINTF("    ID %lu Base %f ", bid.id(), bid_price);
-            // check if higher bid exists
-            if (adj_bid != adj_bids.rbegin() && std::prev(adj_bid)->second.bidder != _config.agent_id) {
-                auto& [higher_price, higher_bid] = *std::prev(adj_bid);
-                // wait duration is atleast as long as the total duration of next higher bid
-                wait_duration = std::max(wait_duration, higher_bid.sumPrevDuration());
-                // skip if there is no price gap between base bid and next higher bid
-                if (std::nextafter(bid_price, FLT_MAX) >= higher_price) {
-                    DEBUG_PRINTF("No Price Gap\r\n");
-                    continue;
-                }
-            }
             // skip bids that belong to this agent
             if (bid.bidder == _config.agent_id) {
                 DEBUG_PRINTF("Skipped Self\r\n");
-                continue;
-            }
-            // skip bid if it requires waiting but current node doesn't allow it
-            if (visit.node->state == Node::NO_STOPPING && wait_duration > earliest_arrival_time) {
-                DEBUG_PRINTF("No Stopping\r\n");
                 continue;
             }
             // skip the bid if it causes cyclic dependencies
             if (detectCycle(bid, visit, front_visit)) {
                 DEBUG_PRINTF("Cycle Detected\r\n");
                 continue;
+            }
+            float wait_duration = 0;
+            // check if a higher bid exists
+            if (higher_bid != adj_bids.end()) {
+                // skip if there is no price gap between base bid and next higher bid
+                if (higher_bid->second.bidder != _config.agent_id &&
+                        std::nextafter(bid_price, FLT_MAX) >= higher_bid->first) {
+                    DEBUG_PRINTF("No Price Gap\r\n");
+                    continue;
+                }
+                // calculate wait duration
+                wait_duration = higher_bid->second.waitDuration(_wait_duration_visits, _config.agent_id);
+                // skip bid if it requires waiting but current node doesn't allow it
+                if (visit.node->state == Node::NO_STOPPING && wait_duration > earliest_arrival_time) {
+                    DEBUG_PRINTF("No Stopping\r\n");
+                    continue;
+                }
             }
             // arrival_time factors in how long you have to wait
             float arrival_time = std::max(wait_duration, earliest_arrival_time);
