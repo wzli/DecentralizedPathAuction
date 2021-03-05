@@ -13,8 +13,9 @@ std::vector<Nodes> make_test_graph(Graph& graph);
 
 void print_path(const Path& path) {
     for (auto& visit : path) {
-        printf("{[%.2f %.2f], t: %.2f, p: %.2f, b: %.2f c:%.2f}\r\n", visit.node->position.x(),
-                visit.node->position.y(), visit.time_estimate, visit.price, visit.base_price, visit.cost_estimate);
+        printf("{[%.2f %.2f], t: %.2f, d: %.2e, p: %.2f, b: %.2f c:%.2f}\r\n", visit.node->position.x(),
+                visit.node->position.y(), visit.time_estimate, visit.duration, visit.price, visit.base_price,
+                visit.cost_estimate);
     }
     puts("");
 }
@@ -237,7 +238,7 @@ TEST(multi_path_search, duplicate_requests) {
     }
 }
 
-#if 0
+#if 1
 TEST(multi_path_search, follow0) {
     // input
     // A---------------->A

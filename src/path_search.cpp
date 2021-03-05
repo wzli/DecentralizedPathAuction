@@ -190,8 +190,9 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
             continue;
         }
         // calculate the expected time to arrive at the adjacent node (without wait)
-        float earliest_arrival_time = visit.time_estimate + _config.travel_time(prev_node, visit.node, adj_node);
-        assert(earliest_arrival_time > visit.time_estimate && "travel time must be positive");
+        float travel_time = _config.travel_time(prev_node, visit.node, adj_node);
+        float earliest_arrival_time = visit.time_estimate + travel_time;
+        assert(travel_time > 0 && "travel time must be positive");
         // iterate in reverse order (highest to lowest) through each bid in the auction of the adjacent node
         auto& adj_bids = adj_node->auction.getBids();
         auto higher_bid = adj_bids.begin();
@@ -203,27 +204,23 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
                 DEBUG_PRINTF("Skipped Self\r\n");
                 continue;
             }
+            // skip if there is no price gap between base bid and next higher bid
+            if (bid_price >= FLT_MAX ||
+                    (higher_bid != adj_bids.end() && higher_bid->second.bidder != _config.agent_id &&
+                            std::nextafter(bid_price, FLT_MAX) >= higher_bid->first)) {
+                DEBUG_PRINTF("No Price Gap\r\n");
+                continue;
+            }
             // skip the bid if it causes cyclic dependencies
             if (detectCycle(bid, visit, front_visit)) {
                 DEBUG_PRINTF("Cycle Detected\r\n");
                 continue;
             }
-            float wait_duration = 0;
-            // check if a higher bid exists
-            if (higher_bid != adj_bids.end()) {
-                // skip if there is no price gap between base bid and next higher bid
-                if (higher_bid->second.bidder != _config.agent_id &&
-                        std::nextafter(bid_price, FLT_MAX) >= higher_bid->first) {
-                    DEBUG_PRINTF("No Price Gap\r\n");
-                    continue;
-                }
-                // calculate wait duration
-                wait_duration = higher_bid->second.waitDuration(_config.agent_id);
-                // skip bid if it requires waiting but current node doesn't allow it
-                if (visit.node->state == Node::NO_STOPPING && wait_duration > earliest_arrival_time) {
-                    DEBUG_PRINTF("No Stopping\r\n");
-                    continue;
-                }
+            // skip bid if it requires waiting but current node doesn't allow it
+            float wait_duration = higher_bid == adj_bids.end() ? 0 : higher_bid->second.waitDuration(_config.agent_id);
+            if (visit.node->state == Node::NO_STOPPING && wait_duration > earliest_arrival_time) {
+                DEBUG_PRINTF("No Stopping\r\n");
+                continue;
             }
             // arrival_time factors in how long you have to wait
             float arrival_time = std::max(wait_duration, earliest_arrival_time);
@@ -237,7 +234,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
             // keep track of lowest cost visit found
             if (cost_estimate < min_cost) {
                 std::swap(cost_estimate, min_cost);
-                min_cost_visit = {adj_node, min_cost_visit.price, 0, bid_price, adj_cost, arrival_time};
+                min_cost_visit = {adj_node, min_cost_visit.price, travel_time, bid_price, adj_cost, arrival_time};
             }
             // store second best cost in the price field
             min_cost_visit.price = std::min(cost_estimate, min_cost_visit.price);
@@ -270,6 +267,7 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     bool cost_increased = min_cost > cost_estimate;
     DEBUG_PRINTF("Min ID %lu Base %f Cost %f Prev %f\r\n\r\n", min_cost_visit.node ? baseBid(min_cost_visit).id() : -1,
             min_cost_visit.base_price, min_cost, cost_estimate);
+    visit.duration = min_cost_visit.duration;
     visit.cost_estimate = min_cost;
     cost_estimate = min_cost;
     cost_key = {_search_nonce, visit.node.get(), visit.base_price};
@@ -288,8 +286,10 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
         if (!is_min_cost_visit(next_visit)) {
             path.resize(visit_index + 2);
         }
+        min_cost_visit.duration = next_visit.duration;
         next_visit = std::move(min_cost_visit);
     }
+    path.back().duration = FLT_MAX;
     // WARNING: visit ref variable is invalidated at this point after modifying path vector
     return cost_increased;
 }
