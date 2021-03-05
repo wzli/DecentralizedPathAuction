@@ -2,13 +2,10 @@
 
 namespace decentralized_path_auction {
 
-static const Auction::Bid* insertBids(
-        const std::string& agent_id, Path::const_iterator it, Path::const_iterator end, float stop_duration) {
+static const Auction::Bid* insertBids(const std::string& agent_id, Path::const_iterator it, Path::const_iterator end) {
     Auction::Bid* prev_bid = nullptr;
     for (; it != end; ++it) {
-        // convert timestamp to duration
-        float duration = it + 1 == end ? stop_duration : (it + 1)->time - it->time;
-        if (it->node->auction.insertBid(agent_id, it->price, duration, prev_bid)) {
+        if (it->node->auction.insertBid(agent_id, it->price, it->duration, prev_bid)) {
             return nullptr;
         };
     }
@@ -23,14 +20,10 @@ static PathSync::Error removeBids(const std::string& agent_id, Path::const_itera
     return error ? PathSync::VISIT_BID_ALREADY_REMOVED : PathSync::SUCCESS;
 }
 
-PathSync::Error PathSync::updatePath(
-        const std::string& agent_id, const Path& path, size_t path_id, float stop_duration) {
+PathSync::Error PathSync::updatePath(const std::string& agent_id, const Path& path, size_t path_id) {
     // input checks
     if (agent_id.empty()) {
         return AGENT_ID_EMPTY;
-    }
-    if (stop_duration < 0) {
-        return STOP_DURATION_NEGATIVE;
     }
     if (auto path_error = validate(path)) {
         return path_error;
@@ -53,18 +46,18 @@ PathSync::Error PathSync::updatePath(
     }
     // remove old bids and insert new ones
     auto remove_error = removeBids(agent_id, info.path.begin() + info.progress, info.path.end());
-    auto tail_bid = insertBids(agent_id, path.begin(), path.end(), stop_duration);
+    auto tail_bid = insertBids(agent_id, path.begin(), path.end());
     assert(tail_bid && "insert bid failed");
     // check if new path causes cycle
     _cycle_visits.resize(DenseId<Auction::Bid>::count());
     if (tail_bid->head().detectCycle(_cycle_visits, ++_cycle_nonce)) {
         // revert bids back to previous path
         removeBids(agent_id, path.begin(), path.end());
-        insertBids(agent_id, info.path.begin() + info.progress, info.path.end(), info.stop_duration);
+        insertBids(agent_id, info.path.begin() + info.progress, info.path.end());
         return PATH_CAUSES_CYCLE;
     }
     // update path
-    info = {path, path_id, 0, stop_duration};
+    info = {path, path_id, 0};
     return remove_error;
 }
 
@@ -133,6 +126,9 @@ PathSync::Error PathSync::validate(const Visit& visit) const {
     if (visit.node->state == Node::DISABLED) {
         return VISIT_NODE_DISABLED;
     }
+    if (visit.duration < 0) {
+        return VISIT_DURATION_NEGATIVE;
+    }
     if (visit.price < visit.node->auction.getBids().begin()->first) {
         return VISIT_PRICE_LESS_THAN_START_PRICE;
     }
@@ -144,18 +140,13 @@ PathSync::Error PathSync::validate(const Path& path) const {
         return PATH_EMPTY;
     }
     _unique_visits.clear();
-    auto prev_visit_time = path.front().time;
     for (auto& visit : path) {
         if (auto error = validate(visit)) {
             return error;
         }
-        if (visit.time < prev_visit_time) {
-            return PATH_TIME_DECREASED;
-        }
         if (!_unique_visits.emplace(visit.node.get(), visit.price).second) {
             return PATH_VISIT_DUPLICATED;
         }
-        prev_visit_time = visit.time;
     }
     return SUCCESS;
 }

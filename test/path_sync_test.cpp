@@ -12,9 +12,8 @@ TEST(path_sync, move_assign) {
     Nodes nodes;
     make_pathway(graph, nodes, {0, 0}, {10, 10}, 11);
     Path path;
-    float t = 0;
     for (auto& node : nodes) {
-        path.push_back(Visit{node, t++, 1, 0});
+        path.push_back(Visit{node, 1, 1});
     }
     // Add two paths to two path_sync with the same graph
     PathSync path_sync_1;
@@ -43,14 +42,15 @@ TEST(path_sync, update_path) {
     Nodes nodes;
     make_pathway(graph, nodes, {0, 0}, {10, 10}, 11);
     Path path;
-    float t = 0;
     for (auto& node : nodes) {
-        path.push_back(Visit{node, t++, 2});
+        path.push_back(Visit{node, 2, 1});
     }
     // input sanity checks
     PathSync path_sync;
     ASSERT_EQ(path_sync.updatePath("", path, 0), PathSync::AGENT_ID_EMPTY);
-    ASSERT_EQ(path_sync.updatePath("A", path, 0, -1), PathSync::STOP_DURATION_NEGATIVE);
+    path.back().duration *= -1;
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_DURATION_NEGATIVE);
+    path.back().duration *= -1;
 
     path[5].node = nullptr;
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_NODE_INVALID);
@@ -63,10 +63,6 @@ TEST(path_sync, update_path) {
     path[5].price *= -1;
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::VISIT_PRICE_LESS_THAN_START_PRICE);
     path[5].price *= -1;
-
-    path[5].time *= -1;
-    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::PATH_TIME_DECREASED);
-    path[5].time *= -1;
 
     path.push_back(path.back());
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::PATH_VISIT_DUPLICATED);
@@ -111,9 +107,8 @@ TEST(path_sync, update_progress) {
     PathSync path_sync;
     make_pathway(graph, nodes, {0, 0}, {10, 10}, 11);
     Path path;
-    float t = 0;
     for (auto& node : nodes) {
-        path.push_back(Visit{node, t++, 1, 0});
+        path.push_back(Visit{node, 1, 1});
     }
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
     auto& path_info = path_sync.getPaths().at("A");
@@ -143,9 +138,8 @@ TEST(path_sync, remove_path) {
     PathSync path_sync;
     make_pathway(graph, nodes, {0, 0}, {10, 10}, 11);
     Path path;
-    float t = 0;
     for (auto& node : nodes) {
-        path.push_back(Visit{node, t++, 1, 0});
+        path.push_back(Visit{node, 1, 1});
     }
     ASSERT_EQ(path_sync.removePath("B"), PathSync::AGENT_ID_NOT_FOUND);
 
@@ -179,9 +173,8 @@ TEST(path_sync, clear_paths) {
     PathSync path_sync;
     make_pathway(graph, nodes, {0, 0}, {10, 10}, 11);
     Path path;
-    float t = 0;
     for (auto& node : nodes) {
-        path.push_back(Visit{node, t++, 1, 0});
+        path.push_back(Visit{node, 1, 1});
     }
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
     path_sync.clearPaths();
@@ -197,9 +190,8 @@ TEST(path_sync, entited_segment) {
     PathSync path_sync;
     make_pathway(graph, nodes, {0, 0}, {9, 9}, 10);
     Path path;
-    float t = 0;
     for (int i = 0; i < 9; ++i) {
-        path.push_back(Visit{nodes[i], t++, 2});
+        path.push_back(Visit{nodes[i], 2, 1});
     }
     // null check
     Path segment;
@@ -215,7 +207,7 @@ TEST(path_sync, entited_segment) {
 
     // intersecting path with lower bid
     {
-        Path path_b = {{nodes[9], 0, 2}, {nodes[8], 1, 1}};
+        Path path_b = {{nodes[9], 2, 1}, {nodes[8], 1, 1}};
         ASSERT_EQ(path_sync.updatePath("B", path_b, 0), PathSync::SUCCESS);
         EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::SUCCESS);
         EXPECT_EQ(segment.size(), path.size());
@@ -223,14 +215,14 @@ TEST(path_sync, entited_segment) {
 
     // intersecting path with higher bid
     {
-        Path path_b = {{nodes[9], 0, 2}, {nodes[8], 1, 3}};
+        Path path_b = {{nodes[9], 2, 1}, {nodes[8], 3, 1}};
         ASSERT_EQ(path_sync.updatePath("B", path_b, 1), PathSync::SUCCESS);
         EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::SUCCESS);
         EXPECT_EQ(segment.size(), path.size() - 1);
     }
 
     // start node outbid
-    ASSERT_EQ(path_sync.updatePath("C", {{nodes[0], 0, 3}}, 0), PathSync::SUCCESS);
+    ASSERT_EQ(path_sync.updatePath("C", {{nodes[0], 3}}, 0), PathSync::SUCCESS);
     EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::SOURCE_NODE_OUTBID);
     EXPECT_EQ(segment.size(), 0u);
 }
@@ -243,31 +235,31 @@ TEST(path_sync, detect_cycle) {
     // expect cycles
     {
         PathSync path_sync;
-        Path path_a = {{nodes[0], 0, 1}, {nodes[1], 0, 1}};
-        Path path_b = {{nodes[0], 0, 2}, {nodes[1], 0, 2}};
+        Path path_a = {{nodes[0], 1}, {nodes[1], 1}};
+        Path path_b = {{nodes[0], 2}, {nodes[1], 2}};
         ASSERT_EQ(path_sync.updatePath("A", path_a, 0), PathSync::SUCCESS);
         ASSERT_EQ(path_sync.updatePath("B", path_b, 0), PathSync::SUCCESS);
     }
 
     {
         PathSync path_sync;
-        Path path_a = {{nodes[0], 0, 1}, {nodes[1], 0, 1}};
-        Path path_b = {{nodes[1], 0, 2}, {nodes[0], 0, 2}};
+        Path path_a = {{nodes[0], 1}, {nodes[1], 1}};
+        Path path_b = {{nodes[1], 2}, {nodes[0], 2}};
         ASSERT_EQ(path_sync.updatePath("A", path_a, 0), PathSync::SUCCESS);
         ASSERT_EQ(path_sync.updatePath("B", path_b, 0), PathSync::SUCCESS);
     }
     // expect cycles
     {
         PathSync path_sync;
-        Path path_a = {{nodes[0], 0, 1}, {nodes[1], 0, 2}};
-        Path path_b = {{nodes[0], 0, 2}, {nodes[1], 0, 1}};
+        Path path_a = {{nodes[0], 1}, {nodes[1], 2}};
+        Path path_b = {{nodes[0], 2}, {nodes[1], 1}};
         ASSERT_EQ(path_sync.updatePath("A", path_a, 0), PathSync::SUCCESS);
         ASSERT_EQ(path_sync.updatePath("B", path_b, 0), PathSync::PATH_CAUSES_CYCLE);
     }
     {
         PathSync path_sync;
-        Path path_a = {{nodes[0], 0, 2}, {nodes[1], 0, 3}};
-        Path path_b = {{nodes[1], 0, 4}, {nodes[0], 0, 1}};
+        Path path_a = {{nodes[0], 2}, {nodes[1], 3}};
+        Path path_b = {{nodes[1], 4}, {nodes[0], 1}};
         ASSERT_EQ(path_sync.updatePath("A", path_a, 0), PathSync::SUCCESS);
         ASSERT_EQ(path_sync.updatePath("B", path_b, 0), PathSync::PATH_CAUSES_CYCLE);
     }

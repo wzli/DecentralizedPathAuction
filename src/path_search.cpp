@@ -180,7 +180,7 @@ float PathSearch::getCostEstimate(const NodePtr& node, float base_price, const A
 float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Visit& front_visit) {
     const NodePtr& prev_node = &visit == &front_visit ? nullptr : (&visit - 1)->node;
     float min_cost = FLT_MAX;
-    min_cost_visit = {nullptr, 0, min_cost};
+    min_cost_visit = {nullptr, FLT_MAX};
     // loop over each adjacent node
     for (const auto& adj_node : visit.node->edges) {
         DEBUG_PRINTF("->[%f %f] \r\n", adj_node->position.x(), adj_node->position.y());
@@ -237,7 +237,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
             // keep track of lowest cost visit found
             if (cost_estimate < min_cost) {
                 std::swap(cost_estimate, min_cost);
-                min_cost_visit = {adj_node, arrival_time, min_cost_visit.price, bid_price, adj_cost};
+                min_cost_visit = {adj_node, min_cost_visit.price, 0, arrival_time, bid_price, adj_cost};
             }
             // store second best cost in the price field
             min_cost_visit.price = std::min(cost_estimate, min_cost_visit.price);
