@@ -119,6 +119,49 @@ PathSync::Error PathSync::getEntitledSegment(const std::string& agent_id, Path& 
     return segment.empty() ? SOURCE_NODE_OUTBID : SUCCESS;
 }
 
+std::tuple<PathSync::Error, size_t, float> PathSync::checkWaitConditions(const std::string& agent_id) const {
+    // find path
+    auto found = _paths.find(agent_id);
+    if (found == _paths.end()) {
+        return {AGENT_ID_NOT_FOUND, 0, FLT_MAX};
+    }
+    // validate path
+    auto& info = found->second;
+    assert(info.progress < info.path.size());
+    for (size_t progress = info.progress; progress < info.path.size(); ++progress) {
+        auto& visit = info.path[progress];
+        switch (visit.node->state) {
+            case Node::DELETED:
+                return {VISIT_NODE_INVALID, progress, FLT_MAX};
+            case Node::DISABLED:
+                return {VISIT_NODE_DISABLED, progress, FLT_MAX};
+            case Node::NO_PARKING:
+                if (progress + 1 == info.path.size()) {
+                    return {DESTINATION_NODE_NO_PARKING, progress, FLT_MAX};
+                }
+                // fallthrough
+            default:
+                auto& bids = visit.node->auction.getBids();
+                auto bid = bids.find(visit.price);
+                if (bid == bids.end() || bid->second.bidder != agent_id) {
+                    return {VISIT_BID_ALREADY_REMOVED, progress, FLT_MAX};
+                }
+        }
+    }
+    // calculate remaining duration
+    auto& last_bid = info.path.back().node->auction.getBids().find(info.path.back().price)->second;
+    float prev_wait_duration = last_bid.prev ? last_bid.prev->waitDuration() : 0;
+    float higher_wait_duration = last_bid.higher ? last_bid.higher->waitDuration() : 0;
+    float remaining_duration = std::max(prev_wait_duration, higher_wait_duration);
+    // calculate blocked progress
+    for (size_t progress = info.progress; progress < info.path.size(); ++progress) {
+        if (info.path[progress].node->auction.getHighestBid()->second.bidder != agent_id) {
+            return {progress == info.progress ? SOURCE_NODE_OUTBID : SUCCESS, progress, remaining_duration};
+        }
+    }
+    return {SUCCESS, info.path.size(), remaining_duration};
+}
+
 PathSync::Error PathSync::validate(const Visit& visit) const {
     if (!Node::validate(visit.node)) {
         return VISIT_NODE_INVALID;
@@ -147,6 +190,9 @@ PathSync::Error PathSync::validate(const Path& path) const {
         if (!_unique_visits.emplace(visit.node.get(), visit.price).second) {
             return PATH_VISIT_DUPLICATED;
         }
+    }
+    if (path.back().node->state >= Node::NO_PARKING) {
+        return DESTINATION_NODE_NO_PARKING;
     }
     return SUCCESS;
 }

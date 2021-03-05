@@ -10,15 +10,16 @@ public:
     enum Error {
         SUCCESS,
         SOURCE_NODE_OUTBID,
+        DESTINATION_NODE_NO_PARKING,
         VISIT_NODE_INVALID,
         VISIT_NODE_DISABLED,
         VISIT_DURATION_NEGATIVE,
         VISIT_PRICE_ALREADY_EXIST,
         VISIT_PRICE_LESS_THAN_START_PRICE,
         VISIT_BID_ALREADY_REMOVED,
-        PATH_CAUSES_CYCLE,
-        PATH_VISIT_DUPLICATED,
         PATH_EMPTY,
+        PATH_VISIT_DUPLICATED,
+        PATH_CAUSES_CYCLE,
         PATH_ID_STALE,
         PATH_ID_MISMATCH,
         AGENT_ID_EMPTY,
@@ -47,6 +48,10 @@ public:
     Error clearPaths();
 
     Error getEntitledSegment(const std::string& agent_id, Path& segment) const;
+
+    // <Error, blocked_progress, remaining_duration>
+    std::tuple<Error, size_t, float> checkWaitConditions(const std::string& agent_id) const;
+
     const Paths& getPaths() const { return _paths; }
 
     Error validate(const Visit& visit) const;
