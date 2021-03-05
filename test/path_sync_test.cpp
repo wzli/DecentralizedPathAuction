@@ -68,6 +68,10 @@ TEST(path_sync, update_path) {
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::PATH_VISIT_DUPLICATED);
     path.pop_back();
 
+    path.back().node->state = Node::NO_PARKING;
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::DESTINATION_NODE_NO_PARKING);
+    path.back().node->state = Node::DEFAULT;
+
     // valid insert
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
 
@@ -182,6 +186,87 @@ TEST(path_sync, clear_paths) {
     for (size_t i = 0; i < nodes.size(); ++i) {
         EXPECT_EQ(nodes[i]->auction.getBids().size(), 1u);
     }
+}
+
+TEST(path_sync, check_wait_conditions) {
+    Graph graph;
+    Nodes nodes;
+    PathSync path_sync;
+    make_pathway(graph, nodes, {0, 0}, {9, 9}, 10);
+    Path path;
+    // path a occupies every node except the last one
+    for (int i = 0; i < 9; ++i) {
+        path.push_back(Visit{nodes[i], 2, 1});
+    }
+    // null check
+    std::tuple<PathSync::Error, size_t, float> ret;
+    auto& [error, blocked_progress, remaining_duration] = ret;
+    ret = path_sync.checkWaitConditions("A");
+    ASSERT_EQ(error, PathSync::AGENT_ID_NOT_FOUND);
+
+    // add whole path with no competition
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
+
+    // path validation checks
+    nodes[5]->state = Node::DELETED;
+    ret = path_sync.checkWaitConditions("A");
+    EXPECT_EQ(error, PathSync::VISIT_NODE_INVALID);
+    EXPECT_EQ(blocked_progress, 5u);
+    EXPECT_EQ(remaining_duration, FLT_MAX);
+    nodes[5]->state = Node::DEFAULT;
+
+    nodes[5]->state = Node::DISABLED;
+    ret = path_sync.checkWaitConditions("A");
+    EXPECT_EQ(error, PathSync::VISIT_NODE_DISABLED);
+    EXPECT_EQ(blocked_progress, 5u);
+    EXPECT_EQ(remaining_duration, FLT_MAX);
+    nodes[5]->state = Node::DEFAULT;
+
+    path.back().node->state = Node::NO_PARKING;
+    ret = path_sync.checkWaitConditions("A");
+    EXPECT_EQ(error, PathSync::DESTINATION_NODE_NO_PARKING);
+    EXPECT_EQ(blocked_progress, path.size() - 1);
+    EXPECT_EQ(remaining_duration, FLT_MAX);
+    path.back().node->state = Node::DEFAULT;
+
+    // success case
+    ret = path_sync.checkWaitConditions("A");
+    EXPECT_EQ(error, PathSync::SUCCESS);
+    EXPECT_EQ(blocked_progress, path.size());
+    EXPECT_EQ(remaining_duration, path.size() - 1);
+
+    // intersecting path with lower bid
+    {
+        Path path_b = {{nodes[9], 2, 1}, {nodes[8], 1, 1}};
+        ASSERT_EQ(path_sync.updatePath("B", path_b, 0), PathSync::SUCCESS);
+        ret = path_sync.checkWaitConditions("A");
+        EXPECT_EQ(error, PathSync::SUCCESS);
+        EXPECT_EQ(blocked_progress, path.size());
+        EXPECT_EQ(remaining_duration, path.size() - 1);
+    }
+
+    // intersecting path with higher bid
+    {
+        Path path_b = {{nodes[9], 2, 1}, {nodes[8], 3, 1}};
+        ASSERT_EQ(path_sync.updatePath("B", path_b, 1), PathSync::SUCCESS);
+        ret = path_sync.checkWaitConditions("A");
+        EXPECT_EQ(error, PathSync::SUCCESS);
+        EXPECT_EQ(blocked_progress, path.size() - 1);
+        EXPECT_EQ(remaining_duration, path.size() - 1);
+    }
+
+    // start node outbid
+    ASSERT_EQ(path_sync.updatePath("C", {{nodes[0], 3}}, 0), PathSync::SUCCESS);
+    ret = path_sync.checkWaitConditions("A");
+    EXPECT_EQ(error, PathSync::SOURCE_NODE_OUTBID);
+    EXPECT_EQ(blocked_progress, 0u);
+
+    // detect externally removed bid
+    nodes[7]->auction.clearBids(0);
+    ret = path_sync.checkWaitConditions("A");
+    EXPECT_EQ(error, PathSync::VISIT_BID_ALREADY_REMOVED);
+    EXPECT_EQ(blocked_progress, 7u);
+    EXPECT_EQ(remaining_duration, FLT_MAX);
 }
 
 TEST(path_sync, entited_segment) {
