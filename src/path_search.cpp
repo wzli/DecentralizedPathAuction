@@ -186,6 +186,11 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
     // loop over each adjacent node
     for (const auto& adj_node : visit.node->edges) {
         DEBUG_PRINTF("->[%f %f] \r\n", adj_node->position.x(), adj_node->position.y());
+        // skip loopback nodes
+        if (adj_node == visit.node) {
+            DEBUG_PRINTF("Node Loopback\r\n");
+            continue;
+        }
         // skip disabled nodes
         if (adj_node->state >= Node::DISABLED) {
             DEBUG_PRINTF("Node Disabled\r\n");

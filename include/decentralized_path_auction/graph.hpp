@@ -17,10 +17,7 @@ struct Node {
     std::vector<std::shared_ptr<Node>> edges = {};
     Auction auction = {};
 
-    static bool validate(const std::shared_ptr<Node>& node) {
-        return node && node->state != Node::DELETED &&
-               std::find(node->edges.begin(), node->edges.end(), node) == node->edges.end();
-    }
+    static bool validate(const std::shared_ptr<Node>& node) { return node && node->state != Node::DELETED; }
 };
 
 using NodePtr = std::shared_ptr<Node>;
