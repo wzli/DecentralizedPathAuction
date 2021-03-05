@@ -68,8 +68,6 @@ private:
 
     using BidKey = std::tuple<size_t, const Node*, float>;
     std::vector<std::pair<BidKey, float>> _cost_estimates, _fallback_cost_estimates;
-    std::vector<CycleVisit> _cycle_visits;
-    size_t _cycle_nonce = 0;
     size_t _search_nonce = 1;
 };
 

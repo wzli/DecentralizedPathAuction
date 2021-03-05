@@ -49,8 +49,10 @@ PathSync::Error PathSync::updatePath(const std::string& agent_id, const Path& pa
     auto tail_bid = insertBids(agent_id, path.begin(), path.end());
     assert(tail_bid && "insert bid failed");
     // check if new path causes cycle
-    _cycle_visits.resize(DenseId<Auction::Bid>::count());
-    if (tail_bid->head().detectCycle(_cycle_visits, ++_cycle_nonce)) {
+    thread_local size_t cycle_nonce = 0;
+    thread_local std::vector<CycleVisit> cycle_visits;
+    cycle_visits.resize(DenseId<Auction::Bid>::count());
+    if (tail_bid->head().detectCycle(cycle_visits, ++cycle_nonce)) {
         // revert bids back to previous path
         removeBids(agent_id, path.begin(), path.end());
         insertBids(agent_id, info.path.begin() + info.progress, info.path.end());
@@ -164,17 +166,23 @@ PathSync::Error PathSync::validate(const Path& path) const {
     if (path.empty()) {
         return PATH_EMPTY;
     }
-    _unique_visits.clear();
     for (auto& visit : path) {
         if (auto error = validate(visit)) {
             return error;
         }
-        if (!_unique_visits.emplace(visit.node.get(), visit.price).second) {
-            return PATH_VISIT_DUPLICATED;
-        }
     }
     if (path.back().node->state >= Node::NO_PARKING) {
         return DESTINATION_NODE_NO_PARKING;
+    }
+    // check for duplicate visits
+    thread_local std::vector<std::pair<const Node*, float>> unique_buf;
+    unique_buf.clear();
+    for (auto& visit : path) {
+        unique_buf.emplace_back(visit.node.get(), visit.price);
+    }
+    std::sort(unique_buf.begin(), unique_buf.end());
+    if (std::adjacent_find(unique_buf.begin(), unique_buf.end()) != unique_buf.end()) {
+        return PATH_VISIT_DUPLICATED;
     }
     return SUCCESS;
 }

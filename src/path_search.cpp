@@ -84,7 +84,6 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     }
     // allocate cost lookup
     _cost_estimates.resize(DenseId<Auction::Bid>::count());
-    _cycle_visits.resize(DenseId<Auction::Bid>::count());
     size_t original_path_size = path.size();
     // truncate visits in path that are invalid (node got deleted/disabled or bid got removed)
     path.erase(std::find_if(path.begin() + 1, path.end(),
@@ -302,21 +301,24 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
 }
 
 bool PathSearch::detectCycle(const Auction::Bid& bid, const Visit& visit, const Visit& front_visit) {
-    ++_cycle_nonce;
+    thread_local size_t cycle_nonce = 0;
+    thread_local std::vector<CycleVisit> cycle_visits;
+    cycle_visits.resize(_cost_estimates.size());
+    ++cycle_nonce;
     // mark previous visits in path as part of ancestor visits
     for (const Visit* visit_ptr = &front_visit; visit_ptr != &visit; ++visit_ptr) {
-        _cycle_visits[baseBid(*visit_ptr).id] = {_cycle_nonce, 2};
+        cycle_visits[baseBid(*visit_ptr).id] = {cycle_nonce, 2};
     }
     // detect cycle of prev->lower bid
     auto& base_bid = baseBid(visit);
-    _cycle_visits[bid.id] = {_cycle_nonce, 2};
-    if (base_bid.detectCycle(_cycle_visits, _cycle_nonce, _config.agent_id)) {
+    cycle_visits[bid.id] = {cycle_nonce, 2};
+    if (base_bid.detectCycle(cycle_visits, cycle_nonce, _config.agent_id)) {
         return true;
     }
     // detect cycle of lower bid
-    _cycle_visits[base_bid.id].in_cycle = 2;
-    _cycle_visits[bid.id].nonce = _cycle_nonce - 1;
-    return bid.detectCycle(_cycle_visits, _cycle_nonce, _config.agent_id);
+    cycle_visits[base_bid.id].in_cycle = 2;
+    cycle_visits[bid.id].nonce = cycle_nonce - 1;
+    return bid.detectCycle(cycle_visits, cycle_nonce, _config.agent_id);
 }
 
 bool PathSearch::checkCostLimit(const Visit& visit) {
