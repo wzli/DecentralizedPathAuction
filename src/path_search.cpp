@@ -157,6 +157,8 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations, float fallb
     }
     // stay if one place if both requested and fallback paths fail
     path.resize(1);
+    path.front().price = FLT_MAX;
+    path.front().duration = FLT_MAX;
     return error;
 }
 

@@ -62,11 +62,11 @@ void multi_iterate(std::vector<Agent>& agents, int rounds, size_t iterations, bo
         for (auto& agent : agents) {
             auto search_error = agent.path_search.iterate(agent.path, iterations, agent.fallback_cost);
             ASSERT_LE(search_error, PathSearch::ITERATIONS_REACHED);
+            agent.path.back().duration = agent.stop_duration;
             if (print) {
                 printf("%s error %d\r\n", agent.id().c_str(), search_error);
                 print_path(agent.path);
             }
-            agent.path.back().duration = agent.stop_duration;
             ASSERT_EQ(path_sync.updatePath(agent.id(), agent.path, agent.path_id++), PathSync::SUCCESS);
             if (std::all_of(agents.begin(), agents.end(), [&path_sync](Agent& a) {
                     Path segment;
@@ -221,9 +221,9 @@ TEST(multi_path_search, head_on_cost_limit) {
 
 TEST(multi_path_search, duplicate_requests) {
     // input
-    // A---------------->A
+    //   A-------------->A
     // 0-1-2-3-4-5-6-7-8-9
-    // B---------------->B
+    //   B-------------->B
     Graph graph;
     Nodes nodes;
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
