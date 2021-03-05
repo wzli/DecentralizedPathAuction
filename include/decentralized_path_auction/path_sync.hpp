@@ -47,8 +47,6 @@ public:
     Error removePath(const std::string& agent_id);
     Error clearPaths();
 
-    Error getEntitledSegment(const std::string& agent_id, Path& segment) const;
-
     // <Error, blocked_progress, remaining_duration>
     std::tuple<Error, size_t, float> checkWaitConditions(const std::string& agent_id) const;
 

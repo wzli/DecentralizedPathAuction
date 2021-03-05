@@ -101,24 +101,6 @@ PathSync::Error PathSync::clearPaths() {
     return static_cast<Error>(error);
 }
 
-PathSync::Error PathSync::getEntitledSegment(const std::string& agent_id, Path& segment) const {
-    segment.clear();
-    auto found = _paths.find(agent_id);
-    if (found == _paths.end()) {
-        return AGENT_ID_NOT_FOUND;
-    }
-    auto& info = found->second;
-    assert(info.progress < info.path.size());
-    for (auto visit = info.path.begin() + info.progress;
-            visit != info.path.end() && visit->node->auction.getHighestBid()->second.bidder == agent_id; ++visit) {
-        if (auto visit_error = validate(*visit)) {
-            return visit_error;
-        }
-        segment.push_back(*visit);
-    }
-    return segment.empty() ? SOURCE_NODE_OUTBID : SUCCESS;
-}
-
 std::tuple<PathSync::Error, size_t, float> PathSync::checkWaitConditions(const std::string& agent_id) const {
     // find path
     auto found = _paths.find(agent_id);

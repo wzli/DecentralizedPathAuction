@@ -269,49 +269,6 @@ TEST(path_sync, check_wait_conditions) {
     EXPECT_EQ(remaining_duration, FLT_MAX);
 }
 
-TEST(path_sync, entited_segment) {
-    Graph graph;
-    Nodes nodes;
-    PathSync path_sync;
-    make_pathway(graph, nodes, {0, 0}, {9, 9}, 10);
-    Path path;
-    for (int i = 0; i < 9; ++i) {
-        path.push_back(Visit{nodes[i], 2, 1});
-    }
-    // null check
-    Path segment;
-    ASSERT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::AGENT_ID_NOT_FOUND);
-    // whole path with no competition
-    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
-    EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::SUCCESS);
-    EXPECT_EQ(segment.size(), path.size());
-    nodes[5]->state = Node::DISABLED;
-    EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::VISIT_NODE_DISABLED);
-    EXPECT_EQ(segment.size(), 5u);
-    nodes[5]->state = Node::DEFAULT;
-
-    // intersecting path with lower bid
-    {
-        Path path_b = {{nodes[9], 2, 1}, {nodes[8], 1, 1}};
-        ASSERT_EQ(path_sync.updatePath("B", path_b, 0), PathSync::SUCCESS);
-        EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::SUCCESS);
-        EXPECT_EQ(segment.size(), path.size());
-    }
-
-    // intersecting path with higher bid
-    {
-        Path path_b = {{nodes[9], 2, 1}, {nodes[8], 3, 1}};
-        ASSERT_EQ(path_sync.updatePath("B", path_b, 1), PathSync::SUCCESS);
-        EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::SUCCESS);
-        EXPECT_EQ(segment.size(), path.size() - 1);
-    }
-
-    // start node outbid
-    ASSERT_EQ(path_sync.updatePath("C", {{nodes[0], 3}}, 0), PathSync::SUCCESS);
-    EXPECT_EQ(path_sync.getEntitledSegment("A", segment), PathSync::SOURCE_NODE_OUTBID);
-    EXPECT_EQ(segment.size(), 0u);
-}
-
 TEST(path_sync, detect_cycle) {
     Graph graph;
     Nodes nodes;

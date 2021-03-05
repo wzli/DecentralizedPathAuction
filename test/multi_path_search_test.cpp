@@ -69,8 +69,8 @@ void multi_iterate(std::vector<Agent>& agents, int rounds, size_t iterations, bo
             }
             ASSERT_EQ(path_sync.updatePath(agent.id(), agent.path, agent.path_id++), PathSync::SUCCESS);
             if (std::all_of(agents.begin(), agents.end(), [&path_sync](Agent& a) {
-                    Path segment;
-                    return PathSync::SUCCESS == path_sync.getEntitledSegment(a.id(), segment);
+                    auto wait_conditions = path_sync.checkWaitConditions(a.id());
+                    return PathSync::SUCCESS == std::get<0>(wait_conditions);
                 })) {
                 rounds = 0;
                 break;
