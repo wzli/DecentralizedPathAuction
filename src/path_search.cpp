@@ -71,7 +71,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
         return DESTINATION_NODE_NO_PARKING;
     }
     // source visit is required to have the highest bid in auction to claim the source node
-    path.front().time = 0;
+    path.front().time_estimate = 0;
     path.front().base_price = src_node->auction.getHighestBid(_config.agent_id)->first;
     if (path.front().base_price >= FLT_MAX) {
         return SOURCE_NODE_OCCUPIED;
@@ -91,7 +91,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
                        [this](const Visit& visit) {
                            return !Node::validate(visit.node) || visit.node->state >= Node::DISABLED ||
                                   !visit.node->auction.getBids().count(visit.base_price) ||
-                                  visit.time < (&visit - 1)->time || checkTermination(visit);
+                                  visit.time_estimate < (&visit - 1)->time_estimate || checkTermination(visit);
                        }),
             path.end());
     // iterate in reverse order through each visit in path on first pass
@@ -190,8 +190,8 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
             continue;
         }
         // calculate the expected time to arrive at the adjacent node (without wait)
-        float earliest_arrival_time = visit.time + _config.travel_time(prev_node, visit.node, adj_node);
-        assert(earliest_arrival_time > visit.time && "travel time must be positive");
+        float earliest_arrival_time = visit.time_estimate + _config.travel_time(prev_node, visit.node, adj_node);
+        assert(earliest_arrival_time > visit.time_estimate && "travel time must be positive");
         // iterate in reverse order (highest to lowest) through each bid in the auction of the adjacent node
         auto& adj_bids = adj_node->auction.getBids();
         auto higher_bid = adj_bids.begin();
@@ -228,7 +228,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
             // arrival_time factors in how long you have to wait
             float arrival_time = std::max(wait_duration, earliest_arrival_time);
             // time cost is proportinal to duration between arrival and departure
-            float time_cost = (arrival_time - visit.time) * _config.time_exchange_rate;
+            float time_cost = (arrival_time - visit.time_estimate) * _config.time_exchange_rate;
             assert(time_cost >= 0);
             // total cost of visit aggregates time cost, price of bid, and estimated cost from adj node to dst
             float adj_cost = getCostEstimate(adj_node, bid_price, bid);
@@ -237,7 +237,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
             // keep track of lowest cost visit found
             if (cost_estimate < min_cost) {
                 std::swap(cost_estimate, min_cost);
-                min_cost_visit = {adj_node, min_cost_visit.price, 0, arrival_time, bid_price, adj_cost};
+                min_cost_visit = {adj_node, min_cost_visit.price, 0, bid_price, adj_cost, arrival_time};
             }
             // store second best cost in the price field
             min_cost_visit.price = std::min(cost_estimate, min_cost_visit.price);

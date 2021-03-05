@@ -14,7 +14,7 @@ std::vector<Nodes> make_test_graph(Graph& graph);
 void print_path(const Path& path) {
     for (auto& visit : path) {
         printf("{[%.2f %.2f], t: %.2f, p: %.2f, b: %.2f c:%.2f}\r\n", visit.node->position.x(),
-                visit.node->position.y(), visit.time, visit.price, visit.base_price, visit.cost_estimate);
+                visit.node->position.y(), visit.time_estimate, visit.price, visit.base_price, visit.cost_estimate);
     }
     puts("");
 }

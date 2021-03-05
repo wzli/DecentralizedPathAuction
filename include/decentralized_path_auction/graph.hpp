@@ -27,9 +27,9 @@ struct Visit {
     NodePtr node;
     float price = 0;
     float duration = 0;
-    float time = 0;
     float base_price = 0;
     float cost_estimate = 0;
+    float time_estimate = 0;
 };
 
 using Path = std::vector<Visit>;
