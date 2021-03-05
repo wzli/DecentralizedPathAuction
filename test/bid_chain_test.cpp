@@ -27,9 +27,8 @@ TEST(bid_chain, wait_duration) {
     }
     prev = nullptr;
     EXPECT_EQ(auctions[5].insertBid("b", 100, 100, prev), Auction::SUCCESS);
-    std::vector<bool> visits(DenseId<Auction::Bid>::count());
     for (size_t i = 0; i < auctions.size(); ++i) {
-        EXPECT_EQ(auctions[i].getBids().begin()->second.waitDuration(visits), i + (i >= 5) * 95);
+        EXPECT_EQ(auctions[i].getBids().begin()->second.waitDuration(), i + (i >= 5) * 95);
     }
 }
 

@@ -85,7 +85,7 @@ struct Auction::Bid {
 
     // recursive functions
     bool detectCycle(std::vector<CycleVisit>& visits, size_t nonce, const std::string& exclude_bidder = "") const;
-    float waitDuration(std::vector<bool>& visits, const std::string& exclude_bidder = "") const;
+    float waitDuration(const std::string& exclude_bidder = "") const;
     const Auction::Bid& head() const { return prev ? prev->head() : *this; }
 };
 

@@ -131,15 +131,16 @@ bool Auction::Bid::detectCycle(std::vector<CycleVisit>& visits, size_t nonce, co
                                              next->detectCycle(visits, nonce, exclude_bidder))))));
 }
 
-float Auction::Bid::waitDuration(std::vector<bool>& visits, const std::string& exclude_bidder) const {
-    assert(visits.size() >= DenseId<Bid>::count());
+float Auction::Bid::waitDuration(const std::string& exclude_bidder) const {
+    thread_local std::vector<bool> visits;
+    visits.resize(DenseId<Bid>::count());
     if (visits[id]) {
         return std::numeric_limits<float>::max();
     }
     visits[id] = true;
-    float higher_wait_duration = higher ? higher->waitDuration(visits, exclude_bidder) : 0;
+    float higher_wait_duration = higher ? higher->waitDuration(exclude_bidder) : 0;
     float prev_wait_duration =
-            bidder == exclude_bidder ? 0 : (duration + (prev ? prev->waitDuration(visits, exclude_bidder) : 0));
+            bidder == exclude_bidder ? 0 : (duration + (prev ? prev->waitDuration(exclude_bidder) : 0));
     visits[id] = false;
     return std::max(higher_wait_duration, prev_wait_duration);
 }

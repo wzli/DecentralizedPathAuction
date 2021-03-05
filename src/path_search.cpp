@@ -84,7 +84,6 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     }
     // allocate cost lookup
     _cost_estimates.resize(DenseId<Auction::Bid>::count());
-    _wait_duration_visits.resize(DenseId<Auction::Bid>::count());
     _cycle_visits.resize(DenseId<Auction::Bid>::count());
     size_t original_path_size = path.size();
     // truncate visits in path that are invalid (node got deleted/disabled or bid got removed)
@@ -219,7 +218,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
                     continue;
                 }
                 // calculate wait duration
-                wait_duration = higher_bid->second.waitDuration(_wait_duration_visits, _config.agent_id);
+                wait_duration = higher_bid->second.waitDuration(_config.agent_id);
                 // skip bid if it requires waiting but current node doesn't allow it
                 if (visit.node->state == Node::NO_STOPPING && wait_duration > earliest_arrival_time) {
                     DEBUG_PRINTF("No Stopping\r\n");
