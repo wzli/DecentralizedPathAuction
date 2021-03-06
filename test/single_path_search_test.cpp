@@ -35,6 +35,8 @@ TEST(single_path_search, reset_input_checks) {
     EXPECT_EQ(path_search.reset({node}), PathSearch::SUCCESS);
     // passive destination
     EXPECT_EQ(path_search.reset({}), PathSearch::SUCCESS);
+    // negative destination duration
+    EXPECT_EQ(path_search.reset({}, -1), PathSearch::DESTINATION_DURATION_NEGATIVE);
     // invalid destination
     EXPECT_EQ(path_search.reset({nullptr}), PathSearch::DESTINATION_NODE_INVALID);
     // reject duplicate node

@@ -14,6 +14,7 @@ public:
         ITERATIONS_REACHED,
         PATH_EXTENDED,
         PATH_CONTRACTED,
+        DESTINATION_DURATION_NEGATIVE,
         DESTINATION_NODE_INVALID,
         DESTINATION_NODE_NO_PARKING,
         DESTINATION_NODE_DUPLICATED,
@@ -46,7 +47,7 @@ public:
 
     Visit selectSource(const Nodes& sources) const;
 
-    Error reset(Nodes destinations);
+    Error reset(Nodes destinations, float destination_duration = FLT_MAX);
     Error iterate(Path& path, size_t iterations = 0);
     Error iterate(Path& path, size_t iterations, float fallback_cost);
 
@@ -67,6 +68,7 @@ private:
 
     Config _config;
     NodeRTree _dst_nodes;
+    float _dst_duration = FLT_MAX;
 
     using BidKey = std::tuple<size_t, const Node*, float>;
     std::vector<std::pair<BidKey, float>> _cost_estimates, _fallback_cost_estimates;

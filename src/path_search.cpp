@@ -47,7 +47,11 @@ Visit PathSearch::selectSource(const Nodes& sources) const {
     return src;
 }
 
-PathSearch::Error PathSearch::reset(Nodes destinations) {
+PathSearch::Error PathSearch::reset(Nodes destinations, float destination_duration) {
+    if (destination_duration < 0) {
+        return DESTINATION_DURATION_NEGATIVE;
+    }
+    _dst_duration = destination_duration;
     // reset cost estimates
     ++_search_nonce;
     // reset destination nodes
@@ -312,7 +316,7 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
         min_cost_visit.duration = next_visit.duration;
         next_visit = std::move(min_cost_visit);
     }
-    path.back().duration = FLT_MAX;
+    path.back().duration = _dst_duration;
     // WARNING: visit ref variable is invalidated at this point after modifying path vector
     return cost_increased;
 }

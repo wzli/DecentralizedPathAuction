@@ -43,16 +43,14 @@ struct Agent {
     Path path;
     Nodes src_candidates;
     float fallback_cost;
-    float stop_duration;
     size_t path_id = 0;
 
-    Agent(PathSearch::Config config, Nodes src, Nodes dst, float fb_cost = FLT_MAX, float stop_dur = FLT_MAX)
+    Agent(PathSearch::Config config, Nodes src, Nodes dst, float fb_cost = FLT_MAX, float dst_dur = FLT_MAX)
             : path_search(std::move(config))
             , path{{path_search.selectSource(src)}}
             , src_candidates(std::move(src))
-            , fallback_cost(fb_cost)
-            , stop_duration(stop_dur) {
-        path_search.reset(std::move(dst));
+            , fallback_cost(fb_cost) {
+        path_search.reset(std::move(dst), dst_dur);
     }
 
     const std::string& id() { return path_search.editConfig().agent_id; }
@@ -64,7 +62,6 @@ void multi_iterate(std::vector<Agent>& agents, int rounds, size_t iterations, bo
         for (auto& agent : agents) {
             auto search_error = agent.path_search.iterate(agent.path, iterations, agent.fallback_cost);
             ASSERT_LE(search_error, PathSearch::ITERATIONS_REACHED);
-            agent.path.back().duration = agent.stop_duration;
             if (print) {
                 printf("%s error %d\r\n", agent.id().c_str(), search_error);
                 print_path(agent.path);
@@ -239,8 +236,8 @@ TEST(multi_path_search, duplicate_requests) {
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
     {
         std::vector<Agent> agents = {
-                Agent({"A"}, {nodes[0]}, {nodes[9]}, FLT_MAX),
-                Agent({"B"}, {nodes[0], nodes[1]}, {nodes[9]}, FLT_MAX),
+                Agent({"A"}, {nodes[0]}, {nodes[9]}),
+                Agent({"B"}, {nodes[0], nodes[1]}, {nodes[9]}),
         };
         multi_iterate(agents, 5, 100);
         ASSERT_EQ(agents[0].path.back().node, nodes[9]);
@@ -251,8 +248,8 @@ TEST(multi_path_search, duplicate_requests) {
     // try again with B first to plan
     {
         std::vector<Agent> agents = {
-                Agent({"B"}, {nodes[0], nodes[1]}, {nodes[9]}, FLT_MAX),
-                Agent({"A"}, {nodes[0]}, {nodes[9]}, FLT_MAX),
+                Agent({"B"}, {nodes[0], nodes[1]}, {nodes[9]}),
+                Agent({"A"}, {nodes[0]}, {nodes[9]}),
         };
         multi_iterate(agents, 5, 100);
         ASSERT_EQ(agents[0].path.back().node, nodes[9]);
