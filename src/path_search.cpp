@@ -30,6 +30,23 @@ PathSearch::Error PathSearch::Config::validate() const {
     return SUCCESS;
 }
 
+Visit PathSearch::selectSource(const Nodes& sources) const {
+    Visit src = {nullptr, FLT_MAX, 0, FLT_MAX};
+    // select node with lowest required bid and set price equal to second best alternative
+    for (auto& node : sources) {
+        if (!Node::validate(node)) {
+            continue;
+        }
+        float price = node->auction.getHighestBid(_config.agent_id)->first;
+        if (price < src.base_price) {
+            src.node = node;
+            std::swap(price, src.base_price);
+        }
+        src.price = std::min(price, src.price);
+    }
+    return src;
+}
+
 PathSearch::Error PathSearch::reset(Nodes destinations) {
     // reset cost estimates
     ++_search_nonce;
@@ -76,7 +93,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     if (path.front().base_price >= FLT_MAX) {
         return SOURCE_NODE_OCCUPIED;
     }
-    path.front().price = determinePrice(path.front().base_price, FLT_MAX, 0, FLT_MAX);
+    path.front().price = determinePrice(path.front().base_price, FLT_MAX, 0, path.front().price);
     // trivial solution
     if (checkTermination(path.front())) {
         path.resize(1);

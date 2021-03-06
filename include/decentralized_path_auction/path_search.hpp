@@ -44,6 +44,8 @@ public:
     PathSearch(Config config)
             : _config(std::move(config)) {}
 
+    Visit selectSource(const Nodes& sources) const;
+
     Error reset(Nodes destinations);
     Error iterate(Path& path, size_t iterations = 0);
     Error iterate(Path& path, size_t iterations, float fallback_cost);
