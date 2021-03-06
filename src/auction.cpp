@@ -108,7 +108,7 @@ Auction::Bids::const_iterator Auction::getHighestBid(const std::string& exclude_
 }
 
 bool Auction::Bid::detectCycle(std::vector<CycleVisit>& visits, size_t nonce, const std::string& exclude_bidder) const {
-    assert(visits.size() >= DenseId<Bid>::count());
+    assert(id < visits.size());
     // cycle occured if previously visited ancestor bid was visited again
     if (visits[id].nonce == nonce) {
         return visits[id].in_cycle;
@@ -133,7 +133,9 @@ bool Auction::Bid::detectCycle(std::vector<CycleVisit>& visits, size_t nonce, co
 
 float Auction::Bid::waitDuration(const std::string& exclude_bidder) const {
     thread_local std::vector<bool> visits;
-    visits.resize(DenseId<Bid>::count());
+    if (id >= visits.size()) {
+        visits.resize(id + 1);
+    }
     if (visits[id]) {
         return std::numeric_limits<float>::max();
     }
