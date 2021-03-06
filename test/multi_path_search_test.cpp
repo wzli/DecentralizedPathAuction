@@ -227,25 +227,38 @@ TEST(multi_path_search, head_on_cost_limit) {
 
 TEST(multi_path_search, duplicate_requests) {
     // input
-    //  A--------------->A
+    // A---------------->A
     // 0-1-2-3-4-5-6-7-8-9
     //  B--------------->B
-    // expect (auto space out)
-    //   A-------------->A
+    // expect (B src pushed to 1)
+    // A---------------->A
     // 0-1-2-3-4-5-6-7-8-9
-    // B---------------->B
+    //   B-------------->B
     Graph graph;
     Nodes nodes;
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
     {
         std::vector<Agent> agents = {
-                Agent({"A"}, {nodes[0], nodes[1]}, {nodes[9]}, FLT_MAX),
+                Agent({"A"}, {nodes[0]}, {nodes[9]}, FLT_MAX),
                 Agent({"B"}, {nodes[0], nodes[1]}, {nodes[9]}, FLT_MAX),
         };
         multi_iterate(agents, 5, 100);
         ASSERT_EQ(agents[0].path.back().node, nodes[9]);
         ASSERT_EQ(agents[1].path.back().node, nodes[9]);
-        ASSERT_NE(agents[0].path.front().node, agents[1].path.front().node);
+        ASSERT_EQ(agents[0].path.front().node, nodes[0]);
+        ASSERT_EQ(agents[1].path.front().node, nodes[1]);
+    }
+    // try again with B first to plan
+    {
+        std::vector<Agent> agents = {
+                Agent({"B"}, {nodes[0], nodes[1]}, {nodes[9]}, FLT_MAX),
+                Agent({"A"}, {nodes[0]}, {nodes[9]}, FLT_MAX),
+        };
+        multi_iterate(agents, 5, 100);
+        ASSERT_EQ(agents[0].path.back().node, nodes[9]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[9]);
+        ASSERT_EQ(agents[0].path.front().node, nodes[1]);
+        ASSERT_EQ(agents[1].path.front().node, nodes[0]);
     }
 }
 
