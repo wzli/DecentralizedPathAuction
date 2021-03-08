@@ -259,98 +259,100 @@ TEST(multi_path_search, duplicate_requests) {
     }
 }
 
-#if 1
-TEST(multi_path_search, follow0) {
+TEST(multi_path_search, follow) {
     // input
-    // A---------------->A
+    //   A-------------->A
     // 0-1-2-3-4-5-6-7-8-9
     // B-------------->B
-    // expect (A wins via higher desperation)
-    // A-------------->A
-    // 0-1-2-3-4-5-6-7-8-9
-    //                 B>B
-}
-
-TEST(multi_path_search, follow) {
+    // expect B to follow behind A
     Graph graph;
     Nodes nodes;
-    // 0-1-2-3-4-5-6-7-8-9
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
-    PathSync path_sync;
-    size_t path_id_a = 0;
-    size_t path_id_b = 0;
-    PathSearch path_search_a({"A"});
-    PathSearch path_search_b({"B"});
-    Path path_a = {{nodes[1]}};
-    Path path_b = {{nodes[0]}};
-    ASSERT_EQ(path_search_a.reset({nodes[9]}), PathSearch::SUCCESS);
-    ASSERT_EQ(path_search_b.reset({nodes[8]}), PathSearch::SUCCESS);
-
-    ASSERT_EQ(path_search_a.iterate(path_a, 100), PathSearch::SUCCESS);
-    ASSERT_EQ(path_a.back().node, nodes[9]);
-    // print_path(path_a);
-    ASSERT_EQ(path_sync.updatePath("A", path_a, path_id_a++), PathSync::SUCCESS);
-
-    ASSERT_EQ(path_search_b.iterate(path_b, 100), PathSearch::SUCCESS);
-    // print_path(path_b);
-    ASSERT_EQ(path_b.back().node, nodes[8]);
-    ASSERT_EQ(path_sync.updatePath("B", path_b, path_id_b++), PathSync::SUCCESS);
-
-    save_paths(path_sync, "follow.csv");
+    {
+        std::vector<Agent> agents = {
+                Agent({"A"}, {nodes[1]}, {nodes[9]}),
+                Agent({"B"}, {nodes[0]}, {nodes[8]}),
+        };
+        multi_iterate(agents, 5, 100, false);
+        ASSERT_EQ(agents[0].path.back().node, nodes[9]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[8]);
+    }
+    // try again with B first to plan
+    {
+        std::vector<Agent> agents = {
+                Agent({"B"}, {nodes[0]}, {nodes[8]}),
+                Agent({"A"}, {nodes[1]}, {nodes[9]}),
+        };
+        multi_iterate(agents, 5, 100, false);
+        ASSERT_EQ(agents[0].path.back().node, nodes[8]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[9]);
+    }
 }
 
 TEST(multi_path_search, push) {
+    // input
+    // A-------------->A
+    // 0-1-2-3-4-5-6-7-8-9
+    //  B
+    // expect B get pushed by A
+    // A-------------->A
+    // 0-1-2-3-4-5-6-7-8-9
+    //  B--------------->B
     Graph graph;
     Nodes nodes;
-    // 0-1-2-3-4-5-6-7-8-9
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
-    PathSync path_sync;
-    size_t path_id_a = 0;
-    size_t path_id_b = 0;
-    PathSearch path_search_a({"A"});
-    PathSearch path_search_b({"B"});
-    Path path_a = {{nodes[0]}};
-    Path path_b = {{nodes[1]}};
-    ASSERT_EQ(path_search_a.reset({nodes[8]}), PathSearch::SUCCESS);
-    ASSERT_EQ(path_search_b.reset({}), PathSearch::SUCCESS);
-
-    ASSERT_EQ(path_search_a.iterate(path_a, 100), PathSearch::SUCCESS);
-    ASSERT_EQ(path_a.back().node, nodes[8]);
-    // print_path(path_a);
-    ASSERT_EQ(path_sync.updatePath("A", path_a, path_id_a++), PathSync::SUCCESS);
-
-    ASSERT_EQ(path_search_b.iterate(path_b, 200), PathSearch::SUCCESS);
-    // print_path(path_b);
-    ASSERT_EQ(path_b.back().node, nodes[9]);
-    ASSERT_EQ(path_sync.updatePath("B", path_b, path_id_b++), PathSync::SUCCESS);
-
-    save_paths(path_sync, "push.csv");
+    {
+        std::vector<Agent> agents = {
+                Agent({"A"}, {nodes[0]}, {nodes[8]}),
+                Agent({"B"}, {nodes[0], nodes[1]}, {}),
+        };
+        multi_iterate(agents, 5, 100, false);
+        ASSERT_EQ(agents[0].path.back().node, nodes[8]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[9]);
+    }
+    // try again with B first to plan
+    {
+        std::vector<Agent> agents = {
+                Agent({"B"}, {nodes[0], nodes[1]}, {}),
+                Agent({"A"}, {nodes[0]}, {nodes[8]}),
+        };
+        multi_iterate(agents, 5, 100, false);
+        ASSERT_EQ(agents[0].path.back().node, nodes[9]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[8]);
+    }
 }
 
 TEST(multi_path_search, dodge) {
+    // input A and B start and both ends and swap places
+    //                            A>
+    // 00-01-02-03-04-05-06-07-08-09
+    // |                          >B
+    // |
+    // 10-11-12-13-14-15-16-17-18-19
+    // |
+    // |                          >A
+    // 20-21-22-23-24-25-26-27-28-29
+    //                            B>
+    // expect successful route with one of them dodging in the middle
     Graph graph;
     auto nodes = make_test_graph(graph);
-    PathSync path_sync;
-    size_t path_id_a = 0;
-    size_t path_id_b = 0;
-    PathSearch path_search_a({"A"});
-    PathSearch path_search_b({"B"});
-    Path path_a = {{nodes[0][9]}};
-    Path path_b = {{nodes[2][9]}};
-    ASSERT_EQ(path_search_a.reset({nodes[2][9]}), PathSearch::SUCCESS);
-    ASSERT_EQ(path_search_b.reset({nodes[0][9]}), PathSearch::SUCCESS);
-
-    EXPECT_EQ(path_search_a.iterate(path_a, 400), PathSearch::SUCCESS);
-    // print_path(path_a);
-    ASSERT_EQ(path_a.back().node, nodes[2][9]);
-    ASSERT_EQ(path_sync.updatePath("A", path_a, path_id_a++), PathSync::SUCCESS);
-
-    ASSERT_EQ(path_search_b.iterate(path_b, 400), PathSearch::SUCCESS);
-    // print_path(path_b);
-    ASSERT_EQ(path_b.back().node, nodes[0][9]);
-    ASSERT_EQ(path_sync.updatePath("B", path_b, path_id_b++), PathSync::SUCCESS);
-
-    save_paths(path_sync, "dodge.csv");
-    save_graph(graph, "dodge_graph.csv");
+    {
+        std::vector<Agent> agents = {
+                Agent({"A"}, {nodes[0][9]}, {nodes[2][9]}),
+                Agent({"B"}, {nodes[2][9]}, {nodes[0][9]}),
+        };
+        multi_iterate(agents, 5, 500, false, true);
+        ASSERT_EQ(agents[0].path.back().node, nodes[2][9]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[0][9]);
+    }
+    // try again with B first to plan
+    {
+        std::vector<Agent> agents = {
+                Agent({"B"}, {nodes[2][9]}, {nodes[0][9]}),
+                Agent({"A"}, {nodes[0][9]}, {nodes[2][9]}),
+        };
+        multi_iterate(agents, 5, 500, false, true);
+        ASSERT_EQ(agents[0].path.back().node, nodes[0][9]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[2][9]);
+    }
 }
-#endif
