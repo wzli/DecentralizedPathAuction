@@ -138,12 +138,14 @@ std::tuple<PathSync::Error, size_t, float> PathSync::checkWaitConditions(const s
     float higher_wait_duration = last_bid.higher ? last_bid.higher->waitDuration() : 0;
     float remaining_duration = std::max(prev_wait_duration, higher_wait_duration);
     // calculate blocked progress
-    for (size_t progress = info.progress; progress < info.path.size(); ++progress) {
-        if (info.path[progress].node->auction.getHighestBid()->second.bidder != agent_id) {
-            return {progress == info.progress ? SOURCE_NODE_OUTBID : SUCCESS, progress, remaining_duration};
-        }
+    size_t progress = info.progress;
+    while (progress < info.path.size() &&
+            info.path[progress].node->auction.getHighestBid()->second.bidder == agent_id) {
+        ++progress;
     }
-    return {SUCCESS, info.path.size(), remaining_duration};
+    return {progress == info.progress ? SOURCE_NODE_OUTBID
+                                      : remaining_duration >= FLT_MAX ? REMAINING_DURATION_INFINITE : SUCCESS,
+            progress, remaining_duration};
 }
 
 PathSync::Error PathSync::validate(const Visit& visit) const {
@@ -175,8 +177,8 @@ PathSync::Error PathSync::validate(const Path& path) const {
         return DESTINATION_NODE_NO_PARKING;
     }
     // check for duplicate visits
-    thread_local std::vector<std::pair<const Node*, float>> unique_buf;
-    unique_buf.clear();
+    std::vector<std::pair<const Node*, float>> unique_buf;
+    unique_buf.reserve(path.size());
     for (auto& visit : path) {
         unique_buf.emplace_back(visit.node.get(), visit.price);
     }

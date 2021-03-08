@@ -9,6 +9,7 @@ class PathSync {
 public:
     enum Error {
         SUCCESS,
+        REMAINING_DURATION_INFINITE,
         SOURCE_NODE_OUTBID,
         DESTINATION_NODE_NO_PARKING,
         VISIT_NODE_INVALID,
