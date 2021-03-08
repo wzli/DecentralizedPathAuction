@@ -101,6 +101,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     // trivial solution
     if (checkTermination(path.front())) {
         path.resize(1);
+        path.front().duration = _dst_duration;
         return SUCCESS;
     }
     // allocate cost lookup
