@@ -45,13 +45,12 @@ public:
     PathSearch(Config config)
             : _config(std::move(config)) {}
 
+    Config& editConfig() { return _config; }
     Visit selectSource(const Nodes& sources) const;
 
-    Error reset(Nodes destinations, float destination_duration = FLT_MAX);
+    Error reset(Nodes destinations, float duration = FLT_MAX);
     Error iterate(Path& path, size_t iterations = 0);
     Error iterate(Path& path, size_t iterations, float fallback_cost);
-
-    Config& editConfig() { return _config; }
 
     static float travelDistance(const NodePtr&, const NodePtr& cur, const NodePtr& next) {
         return bg::distance(cur->position, next->position);

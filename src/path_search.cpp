@@ -47,11 +47,11 @@ Visit PathSearch::selectSource(const Nodes& sources) const {
     return src;
 }
 
-PathSearch::Error PathSearch::reset(Nodes destinations, float destination_duration) {
-    if (destination_duration < 0) {
+PathSearch::Error PathSearch::reset(Nodes destinations, float duration) {
+    if (duration < 0) {
         return DESTINATION_DURATION_NEGATIVE;
     }
-    _dst_duration = destination_duration;
+    _dst_duration = duration;
     // reset cost estimates
     ++_search_nonce;
     // reset destination nodes
@@ -347,9 +347,9 @@ bool PathSearch::checkCostLimit(const Visit& visit) {
 }
 
 bool PathSearch::checkTermination(const Visit& visit) const {
-    // termination condition for passive paths (any parkable node where there are no other bids)
+    // termination condition for passive paths (any parkable node where there are no lower bids)
     return (_dst_nodes.getNodes().empty() && visit.node->state < Node::NO_PARKING &&
-                   visit.node->auction.getHighestBid(_config.agent_id)->second.bidder.empty()) ||
+                   visit.base_price == visit.node->auction.getBids().begin()->first) ||
            // termination condition for regular destinations
            _dst_nodes.containsNode(visit.node);
 }
