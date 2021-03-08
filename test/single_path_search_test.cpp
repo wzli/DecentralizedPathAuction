@@ -319,3 +319,25 @@ TEST(single_path_search, graph_side_effects) {
         ASSERT_NE(node->state, Node::DELETED);
     }
 }
+
+TEST(single_path_search, directional_edge) {
+    Graph graph;
+    Nodes nodes;
+    nodes.push_back(graph.insertNode(Point2D{0, 0}));
+    nodes.push_back(graph.insertNode(Point2D{1, 1}));
+    nodes[0]->edges.push_back(nodes[1]);
+
+    PathSearch path_search({"A"});
+    // try to go from 0 to 1
+    Path path = {{nodes[0]}};
+    ASSERT_EQ(path_search.reset({nodes[1]}), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search.iterate(path, 100), PathSearch::SUCCESS);
+    ASSERT_EQ(path.size(), 2u);
+    ASSERT_EQ(path.back().node, nodes[1]);
+    // try to go from 1 to 0
+    path = {{nodes[1]}};
+    ASSERT_EQ(path_search.reset({nodes[0]}), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search.iterate(path, 100), PathSearch::ITERATIONS_REACHED);
+    ASSERT_EQ(path.size(), 1u);
+    ASSERT_EQ(path.back().node, nodes[1]);
+}
