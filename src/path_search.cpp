@@ -149,14 +149,13 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
 }
 
 PathSearch::Error PathSearch::iterate(Path& path, size_t iterations, float fallback_cost) {
-    if (fallback_cost < 0) {
-        return FALLBACK_COST_NEGATIVE;
-    }
-    // query for path
+    // query for path with cost limit set to fallback cost
+    fallback_cost = std::min(fallback_cost, _config.cost_limit);
+    std::swap(fallback_cost, _config.cost_limit);
     auto error = iterate(path, iterations);
-    // return if search input check failed or destination was empty/passive
-    if (error > ITERATIONS_REACHED || _dst_nodes.getNodes().empty() ||
-            (error == SUCCESS && path.front().cost_estimate < fallback_cost)) {
+    std::swap(fallback_cost, _config.cost_limit);
+    // return if success or search input check failed or destination was empty/passive
+    if (error == SUCCESS || error > ITERATIONS_REACHED || _dst_nodes.getNodes().empty()) {
         return error;
     }
     // calculate fallback path by swapping out destination and cost estimates
@@ -168,15 +167,9 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations, float fallb
     _dst_nodes = std::move(dst_nodes);
     _cost_estimates.swap(_fallback_cost_estimates);
     // divert to fallback if requested path failed or has higher cost than fallback
-    if (fallback_error == SUCCESS &&
-            (error != SUCCESS || fallback_cost * fallback_cost + fallback_path.front().cost_estimate <
-                                         path.front().cost_estimate * path.front().cost_estimate)) {
+    if (fallback_error == SUCCESS) {
         path = std::move(fallback_path);
         return FALLBACK_DIVERTED;
-    }
-    // only requested path succeeded
-    if (error == SUCCESS) {
-        return SUCCESS;
     }
     // stay if one place if both requested and fallback paths fail
     path.resize(1);

@@ -160,36 +160,75 @@ TEST(multi_path_search, head_on_cost_fallback) {
     }
 }
 
-TEST(multi_path_search, head_on_desperate_fallback) {
+TEST(multi_path_search, head_on_cost_fallback_2) {
     // input
-    // A-------------->A
+    //     A---------->A
     // 0-1-2-3-4-5-6-7-8-9
-    // B<------------B
-    // expect (A wins via higher fallback desperation)
-    // A-------------->A
+    //   B<----------B
+    // expect (A wins via higher fallback cost)
+    //     A---------->A
     // 0-1-2-3-4-5-6-7-8-9
-    //               B>B
+    //               B-->B
     Graph graph;
     Nodes nodes;
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
     {
         std::vector<Agent> agents = {
-                Agent({"A"}, {nodes[0]}, {nodes[7]}, 200),
-                Agent({"B"}, {nodes[7]}, {nodes[0]}, 200),
+                Agent({"A"}, {nodes[2]}, {nodes[8]}, 300),
+                Agent({"B"}, {nodes[7]}, {nodes[1]}, 100),
         };
         multi_iterate(agents, 10, 100, false, true);
-        ASSERT_EQ(agents[0].path.back().node, nodes[7]);
-        ASSERT_EQ(agents[1].path.back().node, nodes[8]);
+        ASSERT_EQ(agents[0].path.back().node, nodes[8]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[9]);
     }
     // try again with B first to plan
     {
         std::vector<Agent> agents = {
-                Agent({"B"}, {nodes[7]}, {nodes[0]}, 200),
-                Agent({"A"}, {nodes[0]}, {nodes[7]}, 200),
+                Agent({"B"}, {nodes[7]}, {nodes[1]}, 100),
+                Agent({"A"}, {nodes[2]}, {nodes[8]}, 300),
         };
         multi_iterate(agents, 10, 100, false, true);
-        ASSERT_EQ(agents[0].path.back().node, nodes[8]);
-        ASSERT_EQ(agents[1].path.back().node, nodes[7]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[8]);
+        ASSERT_EQ(agents[0].path.back().node, nodes[9]);
+    }
+}
+
+TEST(multi_path_search, head_on_desperate_fallback) {
+    // input
+    // A------------>A
+    // 0-1-2-3-4-5-6-7-8-9
+    // B<------------B
+    // expect either
+    // A------------>A
+    // 0-1-2-3-4-5-6-7-8-9
+    //               B>B
+    // or
+    // A-------------->A
+    // 0-1-2-3-4-5-6-7-8-9
+    //               B-->B
+    Graph graph;
+    Nodes nodes;
+    make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
+    {
+        std::vector<Agent> agents = {
+                Agent({"A"}, {nodes[0]}, {nodes[7]}, 400),
+                Agent({"B"}, {nodes[7]}, {nodes[0]}, 400),
+        };
+        multi_iterate(agents, 10, 1000, false);
+        ASSERT_GT(agents[0].path.size(), 1u);
+        ASSERT_GT(agents[1].path.size(), 1u);
+        ASSERT_LT(agents[0].path.back().node->position.x(), agents[1].path.back().node->position.x());
+    }
+    // try again with B first to plan
+    {
+        std::vector<Agent> agents = {
+                Agent({"B"}, {nodes[7]}, {nodes[0]}, 400),
+                Agent({"A"}, {nodes[0]}, {nodes[7]}, 400),
+        };
+        multi_iterate(agents, 10, 1000, false);
+        ASSERT_GT(agents[0].path.size(), 1u);
+        ASSERT_GT(agents[1].path.size(), 1u);
+        ASSERT_GT(agents[0].path.back().node->position.x(), agents[1].path.back().node->position.x());
     }
 }
 
