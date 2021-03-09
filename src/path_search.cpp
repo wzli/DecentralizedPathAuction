@@ -159,16 +159,15 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations, float fallb
         return error;
     }
     // calculate fallback path by swapping out destination and cost estimates
-    Path fallback_path = {path.front()};
+    path.resize(1);
     auto dst_nodes = std::move(_dst_nodes);
     assert(_dst_nodes.getNodes().empty());
     _cost_estimates.swap(_fallback_cost_estimates);
-    auto fallback_error = iterate(fallback_path, iterations);
+    auto fallback_error = iterate(path, iterations);
     _dst_nodes = std::move(dst_nodes);
     _cost_estimates.swap(_fallback_cost_estimates);
     // divert to fallback if requested path failed or has higher cost than fallback
     if (fallback_error == SUCCESS) {
-        path = std::move(fallback_path);
         return FALLBACK_DIVERTED;
     }
     // stay if one place if both requested and fallback paths fail
