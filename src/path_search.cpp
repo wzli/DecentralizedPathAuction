@@ -80,11 +80,11 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     if (path.empty()) {
         return SOURCE_NODE_NOT_PROVIDED;
     }
-    auto& src_node = path.front().node;
-    if (!Node::validate(src_node)) {
+    auto& src = path.front();
+    if (!Node::validate(src.node)) {
         return SOURCE_NODE_INVALID;
     }
-    if (src_node->state >= Node::DISABLED) {
+    if (src.node->state >= Node::DISABLED) {
         return SOURCE_NODE_DISABLED;
     }
     // check destination nodes (empty means passive and any node will suffice)
@@ -92,16 +92,18 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
         return DESTINATION_NODE_NO_PARKING;
     }
     // source visit is required to have the highest bid in auction to claim the source node
-    path.front().time_estimate = 0;
-    path.front().base_price = src_node->auction.getHighestBid(_config.agent_id)->first;
-    if (path.front().base_price >= FLT_MAX) {
+    src.time_estimate = 0;
+    src.base_price = src.node->auction.getHighestBid(_config.agent_id)->first;
+    if (src.base_price >= FLT_MAX) {
         return SOURCE_NODE_OCCUPIED;
     }
-    path.front().price = determinePrice(path.front().base_price, FLT_MAX, 0, path.front().price);
+    float alt_src_cost = std::max(src.price - src.base_price, 2 * _config.price_increment);
+    src.price = determinePrice(src.base_price, FLT_MAX, 0, alt_src_cost);
     // trivial solution
-    if (checkTermination(path.front())) {
+    if (checkTermination(src)) {
+        src.duration = _dst_duration;
+        src.cost_estimate = 0;
         path.resize(1);
-        path.front().duration = _dst_duration;
         return SUCCESS;
     }
     // allocate cost lookup
@@ -150,31 +152,31 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations, float fallb
     if (fallback_cost < 0) {
         return FALLBACK_COST_NEGATIVE;
     }
+    // query for path
+    auto error = iterate(path, iterations);
+    // return if search input check failed or destination was empty/passive
+    if (error > ITERATIONS_REACHED || _dst_nodes.getNodes().empty() ||
+            (error == SUCCESS && path.front().cost_estimate < fallback_cost)) {
+        return error;
+    }
     // calculate fallback path by swapping out destination and cost estimates
+    Path fallback_path = {path.front()};
     auto dst_nodes = std::move(_dst_nodes);
     assert(_dst_nodes.getNodes().empty());
     _cost_estimates.swap(_fallback_cost_estimates);
-    auto fallback_error = iterate(path, iterations);
+    auto fallback_error = iterate(fallback_path, iterations);
     _dst_nodes = std::move(dst_nodes);
     _cost_estimates.swap(_fallback_cost_estimates);
-    // return fallback if search input check failed or destination was empty
-    if (fallback_error > ITERATIONS_REACHED || _dst_nodes.getNodes().empty()) {
-        return fallback_error;
-    }
-    // cost of requested path should not exceed cost of fallback option
-    float cost_limit = std::min(path.front().cost_estimate + fallback_cost, _config.cost_limit);
-    std::swap(_config.cost_limit, cost_limit);
-    Path requested_path = {path.front()};
-    auto error = iterate(requested_path, iterations);
-    std::swap(_config.cost_limit, cost_limit);
-    // return requested path if successfully found
-    if (error == SUCCESS) {
-        path = std::move(requested_path);
-        return SUCCESS;
-    }
-    // return fallback path if succesfully found
-    if (fallback_error == SUCCESS) {
+    // divert to fallback if requested path failed or has higher cost than fallback
+    if (fallback_error == SUCCESS &&
+            (error != SUCCESS || fallback_cost * fallback_cost + fallback_path.front().cost_estimate <
+                                         path.front().cost_estimate * path.front().cost_estimate)) {
+        path = std::move(fallback_path);
         return FALLBACK_DIVERTED;
+    }
+    // only requested path succeeded
+    if (error == SUCCESS) {
+        return SUCCESS;
     }
     // stay if one place if both requested and fallback paths fail
     path.resize(1);

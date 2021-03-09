@@ -95,17 +95,25 @@ TEST(single_path_search, trivial_path) {
     Path path = {{nodes[0][0]}};
     ASSERT_EQ(path_search.iterate(path), PathSearch::SUCCESS);
     ASSERT_EQ(path.size(), 1u);
-    ASSERT_EQ(path[0].node, nodes[0][0]);
+    ASSERT_EQ(path[0].duration, FLT_MAX);
+    ASSERT_EQ(path[0].cost_estimate, 0);
+    ASSERT_EQ(path[0].time_estimate, 0);
     // same source as destination
     path_search.reset({nodes[0][0]});
     ASSERT_EQ(path_search.iterate(path), PathSearch::SUCCESS);
     ASSERT_EQ(path.size(), 1u);
     ASSERT_EQ(path[0].node, nodes[0][0]);
+    ASSERT_EQ(path[0].duration, FLT_MAX);
+    ASSERT_EQ(path[0].cost_estimate, 0);
+    ASSERT_EQ(path[0].time_estimate, 0);
 
     path = {{nodes[0][0]}, {nodes[0][1]}};
     ASSERT_EQ(path_search.iterate(path), PathSearch::SUCCESS);
     ASSERT_EQ(path.size(), 1u);
     ASSERT_EQ(path[0].node, nodes[0][0]);
+    ASSERT_EQ(path[0].duration, FLT_MAX);
+    ASSERT_EQ(path[0].cost_estimate, 0);
+    ASSERT_EQ(path[0].time_estimate, 0);
 }
 
 TEST(single_path_search, manual_iterations) {

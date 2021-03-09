@@ -164,32 +164,32 @@ TEST(multi_path_search, head_on_desperate_fallback) {
     // input
     // A-------------->A
     // 0-1-2-3-4-5-6-7-8-9
-    // B<----------------B
+    // B<------------B
     // expect (A wins via higher fallback desperation)
     // A-------------->A
     // 0-1-2-3-4-5-6-7-8-9
-    //                 B>B
+    //               B>B
     Graph graph;
     Nodes nodes;
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
     {
         std::vector<Agent> agents = {
-                Agent({"A"}, {nodes[0]}, {nodes[8]}, 200),
-                Agent({"B"}, {nodes[8]}, {nodes[0]}, 200),
+                Agent({"A"}, {nodes[0]}, {nodes[7]}, 200),
+                Agent({"B"}, {nodes[7]}, {nodes[0]}, 200),
         };
-        multi_iterate(agents, 10, 100, false);
-        ASSERT_EQ(agents[0].path.back().node, nodes[8]);
-        ASSERT_EQ(agents[1].path.back().node, nodes[9]);
+        multi_iterate(agents, 10, 100, false, true);
+        ASSERT_EQ(agents[0].path.back().node, nodes[7]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[8]);
     }
     // try again with B first to plan
     {
         std::vector<Agent> agents = {
-                Agent({"B", 200}, {nodes[8]}, {nodes[0]}),
-                Agent({"A", 200}, {nodes[0]}, {nodes[8]}),
+                Agent({"B"}, {nodes[7]}, {nodes[0]}, 200),
+                Agent({"A"}, {nodes[0]}, {nodes[7]}, 200),
         };
-        multi_iterate(agents, 10, 100, false);
-        ASSERT_EQ(agents[0].path.back().node, nodes[9]);
-        ASSERT_EQ(agents[1].path.back().node, nodes[8]);
+        multi_iterate(agents, 10, 100, false, true);
+        ASSERT_EQ(agents[0].path.back().node, nodes[8]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[7]);
     }
 }
 
@@ -243,7 +243,7 @@ TEST(multi_path_search, duplicate_requests) {
                 Agent({"A"}, {nodes[0]}, {nodes[9]}, FLT_MAX, 100),
                 Agent({"B"}, {nodes[0], nodes[1]}, {nodes[9]}, FLT_MAX, 100),
         };
-        multi_iterate(agents, 5, 100, false);
+        multi_iterate(agents, 5, 400, false);
         ASSERT_EQ(agents[0].path.back().node, nodes[9]);
         ASSERT_EQ(agents[1].path.back().node, nodes[9]);
         ASSERT_EQ(agents[0].path.front().node, nodes[0]);
@@ -255,7 +255,7 @@ TEST(multi_path_search, duplicate_requests) {
                 Agent({"B"}, {nodes[0], nodes[1]}, {nodes[9]}, FLT_MAX, 100),
                 Agent({"A"}, {nodes[0]}, {nodes[9]}, FLT_MAX, 100),
         };
-        multi_iterate(agents, 5, 100, false);
+        multi_iterate(agents, 5, 400, false);
         ASSERT_EQ(agents[0].path.back().node, nodes[9]);
         ASSERT_EQ(agents[1].path.back().node, nodes[9]);
         ASSERT_EQ(agents[0].path.front().node, nodes[1]);
@@ -328,6 +328,30 @@ TEST(multi_path_search, dodge) {
     }
 }
 
+TEST(multi_path_search, asymetric_dodge) {
+    Graph graph;
+    auto nodes = make_test_graph(graph);
+    {
+        std::vector<Agent> agents = {
+                Agent({"A"}, {nodes[0][9]}, {nodes[1][9]}),
+                Agent({"B"}, {nodes[1][9]}, {nodes[0][5]}),
+        };
+        multi_iterate(agents, 5, 500, false);
+        ASSERT_EQ(agents[0].path.back().node, nodes[1][9]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[0][5]);
+    }
+    // try again with B first to plan
+    {
+        std::vector<Agent> agents = {
+                Agent({"B"}, {nodes[1][9]}, {nodes[0][5]}),
+                Agent({"A"}, {nodes[0][9]}, {nodes[1][9]}),
+        };
+        multi_iterate(agents, 5, 500, false);
+        ASSERT_EQ(agents[1].path.back().node, nodes[1][9]);
+        ASSERT_EQ(agents[0].path.back().node, nodes[0][5]);
+    }
+}
+
 TEST(multi_path_search, wait) {
     Graph graph;
     auto nodes = make_test_graph(graph);
@@ -369,7 +393,7 @@ TEST(multi_path_search, passive_push) {
                 Agent({"A"}, {nodes[0]}, {nodes[8]}),
                 Agent({"B"}, {nodes[0], nodes[1]}, {}),
         };
-        multi_iterate(agents, 5, 100, false);
+        multi_iterate(agents, 5, 400, false);
         ASSERT_EQ(agents[0].path.back().node, nodes[8]);
         ASSERT_EQ(agents[1].path.back().node, nodes[9]);
     }
@@ -379,7 +403,7 @@ TEST(multi_path_search, passive_push) {
                 Agent({"B"}, {nodes[0], nodes[1]}, {}),
                 Agent({"A"}, {nodes[0]}, {nodes[8]}),
         };
-        multi_iterate(agents, 5, 100, false);
+        multi_iterate(agents, 5, 400, false);
         ASSERT_EQ(agents[0].path.back().node, nodes[9]);
         ASSERT_EQ(agents[1].path.back().node, nodes[8]);
     }
@@ -433,26 +457,72 @@ TEST(multi_path_search, passive_push_out) {
     }
 }
 
-TEST(multi_path_search, avoid_entering_ailse) {
+TEST(multi_path_search, ailse_enter_avoid) {
     Graph graph;
     auto nodes = make_test_graph(graph);
     {
         std::vector<Agent> agents = {
-                Agent({"A"}, {nodes[0][5]}, {nodes[1][9]}),
-                Agent({"B"}, {nodes[0][2]}, {nodes[0][8]}),
+                Agent({"A"}, {nodes[0][9]}, {nodes[1][9]}),
+                Agent({"B"}, {nodes[0][2]}, {nodes[0][9]}),
         };
-        multi_iterate(agents, 5, 500, false, false);
+        multi_iterate(agents, 5, 500, false);
         ASSERT_EQ(agents[0].path.back().node, nodes[1][9]);
-        ASSERT_EQ(agents[1].path.back().node, nodes[0][8]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[0][9]);
     }
     // try again with B first to plan
     {
         std::vector<Agent> agents = {
-                Agent({"B"}, {nodes[0][2]}, {nodes[0][8]}),
+                Agent({"B"}, {nodes[0][2]}, {nodes[0][9]}),
                 Agent({"A"}, {nodes[0][5]}, {nodes[1][9]}),
         };
-        multi_iterate(agents, 5, 500, false, true);
+        multi_iterate(agents, 5, 500, false);
         ASSERT_EQ(agents[1].path.back().node, nodes[1][9]);
-        ASSERT_EQ(agents[0].path.back().node, nodes[0][8]);
+        ASSERT_EQ(agents[0].path.back().node, nodes[0][9]);
+    }
+}
+
+TEST(multi_path_search, ailse_exit_block) {
+    Graph graph;
+    auto nodes = make_test_graph(graph);
+    // A wants to exit ailse, but B blocks
+    {
+        // A yields to be due to lower fallback cost
+        std::vector<Agent> agents = {
+                Agent({"A"}, {nodes[0][9]}, {nodes[1][9]}, 200),
+                Agent({"B"}, {nodes[0][8]}, {nodes[0][7]}, 400),
+        };
+        multi_iterate(agents, 10, 500, false);
+        ASSERT_EQ(agents[0].path.back().node, nodes[0][9]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[0][7]);
+    }
+    {
+        // repeat above with swapped order
+        std::vector<Agent> agents = {
+                Agent({"B"}, {nodes[0][8]}, {nodes[0][7]}, 400),
+                Agent({"A"}, {nodes[0][9]}, {nodes[1][9]}, 200),
+        };
+        multi_iterate(agents, 10, 500, false);
+        ASSERT_EQ(agents[1].path.back().node, nodes[0][9]);
+        ASSERT_EQ(agents[0].path.back().node, nodes[0][7]);
+    }
+    {
+        // B yields to be due to lower fallback cost
+        std::vector<Agent> agents = {
+                Agent({"A"}, {nodes[0][9]}, {nodes[1][9]}, 500),
+                Agent({"B"}, {nodes[0][8]}, {nodes[0][7]}, 200),
+        };
+        multi_iterate(agents, 10, 500, false);
+        ASSERT_EQ(agents[0].path.back().node, nodes[1][9]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[2][0]);
+    }
+    {
+        // repeat above with swapped order
+        std::vector<Agent> agents = {
+                Agent({"B"}, {nodes[0][8]}, {nodes[0][7]}, 200),
+                Agent({"A"}, {nodes[0][9]}, {nodes[1][9]}, 500),
+        };
+        multi_iterate(agents, 10, 500, false);
+        ASSERT_EQ(agents[1].path.back().node, nodes[1][9]);
+        ASSERT_EQ(agents[0].path.back().node, nodes[2][0]);
     }
 }
