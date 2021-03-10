@@ -70,7 +70,8 @@ void multi_iterate(std::vector<Agent>& agents, int rounds, size_t iterations, bo
                 printf("%s error %d\r\n", agent.id().c_str(), search_error);
                 print_path(agent.path);
             }
-            ASSERT_EQ(path_sync.updatePath(agent.id(), agent.path, agent.path_id++), PathSync::SUCCESS);
+            auto update_error = path_sync.updatePath(agent.id(), agent.path, agent.path_id++);
+            ASSERT_EQ(update_error, PathSync::SUCCESS);
             if (std::all_of(agents.begin(), agents.end(), [&](Agent& a) {
                     auto error = std::get<0>(path_sync.checkWaitConditions(a.id()));
                     if (error == PathSync::SOURCE_NODE_OUTBID) {
@@ -214,7 +215,7 @@ TEST(multi_path_search, head_on_desperate_fallback) {
                 Agent({"A"}, {nodes[0]}, {nodes[7]}, 400),
                 Agent({"B"}, {nodes[7]}, {nodes[0]}, 400),
         };
-        multi_iterate(agents, 10, 1000, false);
+        multi_iterate(agents, 40, 1000, false);
         ASSERT_GT(agents[0].path.size(), 1u);
         ASSERT_GT(agents[1].path.size(), 1u);
         ASSERT_LT(agents[0].path.back().node->position.x(), agents[1].path.back().node->position.x());
@@ -225,7 +226,7 @@ TEST(multi_path_search, head_on_desperate_fallback) {
                 Agent({"B"}, {nodes[7]}, {nodes[0]}, 400),
                 Agent({"A"}, {nodes[0]}, {nodes[7]}, 400),
         };
-        multi_iterate(agents, 10, 1000, false);
+        multi_iterate(agents, 40, 1000, false);
         ASSERT_GT(agents[0].path.size(), 1u);
         ASSERT_GT(agents[1].path.size(), 1u);
         ASSERT_GT(agents[0].path.back().node->position.x(), agents[1].path.back().node->position.x());
@@ -249,7 +250,7 @@ TEST(multi_path_search, head_on_cost_limit) {
                 Agent({"A", 200}, {nodes[0]}, {nodes[9]}),
                 Agent({"B", 100}, {nodes[9]}, {nodes[0]}),
         };
-        multi_iterate(agents, 5, 100, true);
+        multi_iterate(agents, 10, 100, true);
         ASSERT_EQ(agents[0].path.back().node, nodes[9]);
         ASSERT_EQ(agents[1].path.back().node, nodes[9]);
     }
@@ -259,7 +260,7 @@ TEST(multi_path_search, head_on_cost_limit) {
                 Agent({"B", 100}, {nodes[9]}, {nodes[0]}),
                 Agent({"A", 200}, {nodes[0]}, {nodes[9]}),
         };
-        multi_iterate(agents, 5, 100, true);
+        multi_iterate(agents, 10, 100, true);
         ASSERT_EQ(agents[0].path.back().node, nodes[9]);
         ASSERT_EQ(agents[1].path.back().node, nodes[9]);
     }
@@ -504,7 +505,7 @@ TEST(multi_path_search, ailse_enter_avoid) {
                 Agent({"A"}, {nodes[0][9]}, {nodes[1][9]}),
                 Agent({"B"}, {nodes[0][2]}, {nodes[0][9]}),
         };
-        multi_iterate(agents, 5, 500, false);
+        multi_iterate(agents, 10, 500, false);
         ASSERT_EQ(agents[0].path.back().node, nodes[1][9]);
         ASSERT_EQ(agents[1].path.back().node, nodes[0][9]);
     }
@@ -514,7 +515,7 @@ TEST(multi_path_search, ailse_enter_avoid) {
                 Agent({"B"}, {nodes[0][2]}, {nodes[0][9]}),
                 Agent({"A"}, {nodes[0][5]}, {nodes[1][9]}),
         };
-        multi_iterate(agents, 5, 500, false);
+        multi_iterate(agents, 10, 500, false);
         ASSERT_EQ(agents[1].path.back().node, nodes[1][9]);
         ASSERT_EQ(agents[0].path.back().node, nodes[0][9]);
     }
@@ -618,7 +619,6 @@ TEST(multi_path_search, same_start_node_passive) {
     }
 }
 
-#if 0
 TEST(multi_path_search, adjacent_nodes) {
     Graph graph;
     Nodes nodes;
@@ -630,10 +630,21 @@ TEST(multi_path_search, adjacent_nodes) {
                 Agent({"A"}, {nodes[4]}, {nodes[8]}),
                 Agent({"B"}, {nodes[5]}, {nodes[1]}),
         };
-        multi_iterate(agents, 10, 100, false, true);
+        multi_iterate(agents, 10, 100, false);
+        ASSERT_EQ(agents[0].path.back().node, nodes[8]);
+        ASSERT_EQ(agents[1].path.back().node, nodes[1]);
+    }
+    // repeat above with swapped order
+    {
+        std::vector<Agent> agents = {
+                Agent({"B"}, {nodes[5]}, {nodes[1]}),
+                Agent({"A"}, {nodes[4]}, {nodes[8]}),
+        };
+        multi_iterate(agents, 10, 100, false);
+        ASSERT_EQ(agents[1].path.back().node, nodes[8]);
+        ASSERT_EQ(agents[0].path.back().node, nodes[1]);
     }
 }
-#endif
 
 TEST(multi_path_search, dodge_left_right) {
     Graph graph;
@@ -644,7 +655,7 @@ TEST(multi_path_search, dodge_left_right) {
                 Agent({"B"}, {nodes[2][9]}, {nodes[1][8]}),
                 Agent({"C"}, {nodes[0][8]}, {nodes[2][8]}),
         };
-        multi_iterate(agents, 5, 10000, false);
+        multi_iterate(agents, 10, 10000, false);
         ASSERT_EQ(agents[0].path.back().node, nodes[1][9]);
         ASSERT_EQ(agents[1].path.back().node, nodes[1][8]);
         ASSERT_EQ(agents[2].path.back().node, nodes[2][8]);
