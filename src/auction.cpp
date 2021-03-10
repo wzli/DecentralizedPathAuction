@@ -116,6 +116,7 @@ bool Auction::Bid::detectCycle(std::vector<CycleVisit>& visits, size_t nonce, co
     // mark traversed bids as visited
     visits[id].nonce = nonce;
     visits[id].in_cycle = 1;
+    bool next_temp = next && visits[next->id].in_cycle >> 1 && visits[next->id].nonce == nonce;
     // detect cycle for next bids in time (first by auction rank, then by path sequence)
     return (visits[id].in_cycle =
                     // detect cycle at next lower bid
@@ -125,10 +126,11 @@ bool Auction::Bid::detectCycle(std::vector<CycleVisit>& visits, size_t nonce, co
                     // detect cycle at next lower bid of previous bid
                     ((prev && prev->lower && prev->lower->detectCycle(visits, nonce, exclude_bidder)) ||
                             // clear flag on next bid for temporary bids inbetween existing bids
-                            (next && ((visits[next->id].nonce == nonce && visits[next->id].in_cycle & 2 &&
-                                              --visits[next->id].nonce),
+                            (next && (visits[next->id].nonce -= next_temp,
                                              // detect cycle at next bid
-                                             next->detectCycle(visits, nonce, exclude_bidder))))));
+                                             next->detectCycle(visits, nonce, exclude_bidder),
+                                             // restore temporary bid flag after call
+                                             (visits[next->id].in_cycle |= next_temp << 1) & 1)))));
 }
 
 float Auction::Bid::waitDuration(const std::string& exclude_bidder) const {
