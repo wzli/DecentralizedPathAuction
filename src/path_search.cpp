@@ -196,6 +196,7 @@ float PathSearch::getCostEstimate(const NodePtr& node, float base_price, const A
 
 float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Visit& front_visit) {
     const NodePtr& prev_node = &visit == &front_visit ? nullptr : (&visit - 1)->node;
+    float backtrack_cost = FLT_MAX;
     float min_cost = FLT_MAX;
     min_cost_visit = {nullptr, FLT_MAX};
     // loop over each adjacent node
@@ -233,6 +234,13 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
                 DEBUG_PRINTF("No Price Gap\r\n");
                 continue;
             }
+            // skip if bid came from previous visit
+            float adj_cost = getCostEstimate(adj_node, bid_price, bid);
+            if (prev_node == adj_node && (&visit - 1)->base_price == bid_price) {
+                backtrack_cost = (travel_time * _config.time_exchange_rate) + bid_price + adj_cost;
+                DEBUG_PRINTF("Backtrack Cost %f\r\n", backtrack_cost);
+                continue;
+            }
             // skip the bid if it causes cyclic dependencies
             if (detectCycle(bid, visit, front_visit)) {
                 DEBUG_PRINTF("Cycle Detected\r\n");
@@ -250,7 +258,6 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
             float time_cost = (arrival_time - visit.time_estimate) * _config.time_exchange_rate;
             assert(time_cost >= 0);
             // total cost of visit aggregates time cost, price of bid, and estimated cost from adj node to dst
-            float adj_cost = getCostEstimate(adj_node, bid_price, bid);
             float cost_estimate = time_cost + bid_price + adj_cost;
             DEBUG_PRINTF("Cost %f\r\n", cost_estimate);
             // keep track of lowest cost visit found
@@ -261,6 +268,10 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
             // store second best cost in the price field
             min_cost_visit.price = std::min(cost_estimate, min_cost_visit.price);
         }
+    }
+    if (backtrack_cost < min_cost) {
+        min_cost_visit = {};
+        return backtrack_cost;
     }
     // decide on a bid price for the min cost visit
     if (min_cost_visit.node) {
@@ -293,11 +304,8 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     visit.cost_estimate = min_cost;
     cost_estimate = min_cost;
     cost_key = {_search_nonce, visit.node.get(), visit.base_price};
-    const auto is_min_cost_visit = [&min_cost_visit](const Visit& v) {
-        return v.node == min_cost_visit.node && v.base_price == min_cost_visit.base_price;
-    };
-    if (!min_cost_visit.node || std::any_of(path.begin(), path.begin() + visit_index, is_min_cost_visit)) {
-        // truncate rest of path if min cost visit is a dead end or has a loop back
+    if (!min_cost_visit.node) {
+        // truncate rest of path if min cost visit is a dead end
         path.resize(visit_index + 1);
     } else if (&visit == &path.back()) {
         // append min cost visit if already at the back of path
@@ -305,7 +313,7 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     } else {
         // truncate path if min cost visit is different from next visit in path
         auto& next_visit = path[visit_index + 1];
-        if (!is_min_cost_visit(next_visit)) {
+        if (next_visit.node != min_cost_visit.node || next_visit.base_price != min_cost_visit.base_price) {
             path.resize(visit_index + 2);
         }
         min_cost_visit.duration = next_visit.duration;
