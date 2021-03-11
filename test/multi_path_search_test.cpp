@@ -655,7 +655,7 @@ TEST(multi_path_search, dodge_left_right) {
                 Agent({"B"}, {nodes[2][9]}, {nodes[1][8]}),
                 Agent({"C"}, {nodes[0][8]}, {nodes[2][8]}),
         };
-        multi_iterate(agents, 10, 10000, false);
+        multi_iterate(agents, 40, 10000, false);
         ASSERT_EQ(agents[0].path.back().node, nodes[1][9]);
         ASSERT_EQ(agents[1].path.back().node, nodes[1][8]);
         ASSERT_EQ(agents[2].path.back().node, nodes[2][8]);
