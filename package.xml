@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>decentralized_path_auction</name>
+  <version>0.0.0</version>
+  <description>Multi-agent path planning based on decentralized auctions.</description>
+  <license>Commercial</license>
+
+  <maintainer email="wzli@rapyuta-robotics.com">WenZheng Li</maintainer>
+
+  <buildtool_depend>catkin</buildtool_depend>
+</package>
