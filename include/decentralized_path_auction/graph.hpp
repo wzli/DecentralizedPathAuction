@@ -1,10 +1,10 @@
 #pragma once
 
-#include <decentralized_path_auction/auction.hpp>
+#include <memory>
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/index/rtree.hpp>
-#include <memory>
+#include <decentralized_path_auction/auction.hpp>
 
 namespace decentralized_path_auction {
 

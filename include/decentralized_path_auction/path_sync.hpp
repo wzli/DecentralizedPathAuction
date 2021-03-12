@@ -1,7 +1,7 @@
 #pragma once
 
-#include <decentralized_path_auction/graph.hpp>
 #include <unordered_map>
+#include <decentralized_path_auction/graph.hpp>
 
 namespace decentralized_path_auction {
 

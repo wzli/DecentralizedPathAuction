@@ -1,9 +1,9 @@
 #pragma once
 
-#include <boost/lockfree/queue.hpp>
 #include <map>
 #include <string>
 #include <vector>
+#include <boost/lockfree/queue.hpp>
 
 namespace decentralized_path_auction {
 
