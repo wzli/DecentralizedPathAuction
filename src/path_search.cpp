@@ -30,21 +30,27 @@ PathSearch::Error PathSearch::Config::validate() const {
     return SUCCESS;
 }
 
-Visit PathSearch::selectSource(const Nodes& sources) const {
-    Visit src = {nullptr, FLT_MAX, 0, FLT_MAX};
+Visit PathSearch::selectSource(const Nodes& sources) {
+    NodePtr min_node = nullptr;
+    float base_price = FLT_MAX;
+    float min_cost = FLT_MAX;
+    float alt_cost = FLT_MAX;
     // select node with lowest required bid and set price equal to second best alternative
     for (auto& node : sources) {
         if (!Node::validate(node)) {
             continue;
         }
-        float price = node->auction.getHighestBid(_config.agent_id)->first;
-        if (price < src.base_price) {
-            src.node = node;
-            std::swap(price, src.base_price);
+        auto& [bid_price, bid] = *node->auction.getHighestBid(_config.agent_id);
+        _cost_estimates.resize(std::max(_cost_estimates.size(), bid.id + 1));
+        float cost = bid_price + getCostEstimate(node, bid_price, bid);
+        if (cost < min_cost) {
+            min_node = node;
+            base_price = bid_price;
+            std::swap(cost, min_cost);
         }
-        src.price = std::min(price, src.price);
+        alt_cost = std::min(alt_cost, cost);
     }
-    return src;
+    return {min_node, determinePrice(base_price, FLT_MAX, min_cost, alt_cost), 0, base_price};
 }
 
 PathSearch::Error PathSearch::reset(Nodes destinations, float duration) {
@@ -92,17 +98,16 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
         return DESTINATION_NODE_NO_PARKING;
     }
     // source visit is required to have the highest bid in auction to claim the source node
+    src.cost_estimate = 0;
     src.time_estimate = 0;
     src.base_price = src.node->auction.getHighestBid(_config.agent_id)->first;
     if (src.base_price >= FLT_MAX) {
-        return SOURCE_NODE_OCCUPIED;
+        return SOURCE_NODE_PRICE_INFINITE;
     }
-    float alt_src_cost = std::max(src.price - src.base_price, 2 * _config.price_increment);
-    src.price = determinePrice(src.base_price, FLT_MAX, 0, alt_src_cost);
+    src.price = std::max(src.price, determinePrice(src.base_price, FLT_MAX, 0, 0)) + _config.price_increment;
     // trivial solution
     if (checkTermination(src)) {
         src.duration = _dst_duration;
-        src.cost_estimate = 0;
         path.resize(1);
         return SUCCESS;
     }
@@ -324,7 +329,19 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     return cost_increased;
 }
 
-bool PathSearch::detectCycle(const Auction::Bid& bid, const Visit& visit, const Visit& front_visit) {
+bool PathSearch::checkCostLimit(const Visit& visit) const {
+    return visit.base_price + visit.cost_estimate > _config.cost_limit;
+}
+
+bool PathSearch::checkTermination(const Visit& visit) const {
+    // termination condition for passive paths (any parkable node where there are no lower bids)
+    return (_dst_nodes.getNodes().empty() && visit.node->state < Node::NO_PARKING &&
+                   visit.base_price == visit.node->auction.getBids().begin()->first) ||
+           // termination condition for regular destinations
+           _dst_nodes.containsNode(visit.node);
+}
+
+bool PathSearch::detectCycle(const Auction::Bid& bid, const Visit& visit, const Visit& front_visit) const {
     thread_local size_t cycle_nonce = 0;
     thread_local std::vector<CycleVisit> cycle_visits;
     cycle_visits.resize(_cost_estimates.size());
@@ -345,31 +362,23 @@ bool PathSearch::detectCycle(const Auction::Bid& bid, const Visit& visit, const 
     return bid.detectCycle(cycle_visits, cycle_nonce, _config.agent_id);
 }
 
-bool PathSearch::checkCostLimit(const Visit& visit) {
-    return visit.base_price + visit.cost_estimate > _config.cost_limit;
-}
-
-bool PathSearch::checkTermination(const Visit& visit) const {
-    // termination condition for passive paths (any parkable node where there are no lower bids)
-    return (_dst_nodes.getNodes().empty() && visit.node->state < Node::NO_PARKING &&
-                   visit.base_price == visit.node->auction.getBids().begin()->first) ||
-           // termination condition for regular destinations
-           _dst_nodes.containsNode(visit.node);
-}
-
 float PathSearch::determinePrice(float base_price, float price_limit, float cost, float alternative_cost) const {
     assert(cost <= alternative_cost);
     assert(base_price <= price_limit);
     base_price = std::nextafter(base_price, FLT_MAX);
-    // take mid price if it is lower than minimum increment to avoid bidding over slot limit
+    // just raise by price increment if alternative doesn't exist
     float min_price = base_price + _config.price_increment;
+    if (alternative_cost >= FLT_MAX && price_limit >= FLT_MAX) {
+        return min_price;
+    }
+    // take mid price if it is lower than minimum increment to avoid bidding over slot limit
     float mid_price = (base_price + price_limit) / 2;
     if (mid_price <= min_price) {
         return mid_price;
     }
     // willing to pay additionally up to the surplus benefit compared to best alternative
     float price = base_price + alternative_cost - cost;
-    if (price <= min_price || (alternative_cost >= FLT_MAX && price_limit >= FLT_MAX)) {
+    if (price <= min_price) {
         return min_price;
     }
     return std::min(price, price_limit - _config.price_increment);

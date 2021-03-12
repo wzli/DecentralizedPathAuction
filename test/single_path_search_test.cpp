@@ -81,7 +81,7 @@ TEST(single_path_search, iterate_input_checks) {
     node->state = Node::DEFAULT;
     Auction::Bid* prev = nullptr;
     ASSERT_EQ(node->auction.insertBid("B", FLT_MAX, 0, prev), Auction::SUCCESS);
-    EXPECT_EQ(path_search.iterate(path), PathSearch::SOURCE_NODE_OCCUPIED);
+    EXPECT_EQ(path_search.iterate(path), PathSearch::SOURCE_NODE_PRICE_INFINITE);
     ASSERT_EQ(node->auction.removeBid("B", FLT_MAX), Auction::SUCCESS);
     // check success
     EXPECT_EQ(path_search.iterate(path), PathSearch::SUCCESS);

@@ -567,7 +567,25 @@ TEST(multi_path_search, ailse_exit_block) {
     }
 }
 
-TEST(multi_path_search, same_start_node) {
+TEST(multi_path_search, dst_node_auction) {
+    Graph graph;
+    auto nodes = make_test_graph(graph);
+    nodes[0][1]->edges.push_back(nodes[1][1]);
+    nodes[1][1]->edges.push_back(nodes[0][1]);
+
+    nodes[1][1]->edges.push_back(nodes[2][1]);
+    nodes[2][1]->edges.push_back(nodes[1][1]);
+    {
+        std::vector<Agent> agents = {
+                Agent({"A"}, {nodes[0][9]}, {nodes[1][0], nodes[2][0]}),
+                Agent({"B"}, {nodes[2][9]}, {nodes[1][0], nodes[0][0]}),
+        };
+        multi_iterate(agents, 10, 100, false);
+        ASSERT_NE(agents[0].path.back().node, agents[1].path.back().node);
+    }
+}
+
+TEST(multi_path_search, same_src_node) {
     Graph graph;
     Nodes nodes;
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
@@ -596,7 +614,7 @@ TEST(multi_path_search, same_start_node) {
     }
 }
 
-TEST(multi_path_search, same_start_node_passive) {
+TEST(multi_path_search, same_src_node_passive) {
     Graph graph;
     Nodes nodes;
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);
@@ -619,7 +637,7 @@ TEST(multi_path_search, same_start_node_passive) {
     }
 }
 
-TEST(multi_path_search, adjacent_nodes) {
+TEST(multi_path_search, wrap_around) {
     Graph graph;
     Nodes nodes;
     make_pathway(graph, nodes, {0, 0}, {9, 0}, 10);

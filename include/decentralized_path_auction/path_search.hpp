@@ -21,7 +21,7 @@ public:
         SOURCE_NODE_NOT_PROVIDED,
         SOURCE_NODE_INVALID,
         SOURCE_NODE_DISABLED,
-        SOURCE_NODE_OCCUPIED,
+        SOURCE_NODE_PRICE_INFINITE,
         CONFIG_AGENT_ID_EMPTY,
         CONFIG_COST_LIMIT_NON_POSITIVE,
         CONFIG_PRICE_INCREMENT_NON_POSITIVE,
@@ -45,8 +45,7 @@ public:
             : _config(std::move(config)) {}
 
     Config& editConfig() { return _config; }
-    Visit selectSource(const Nodes& sources) const;
-
+    Visit selectSource(const Nodes& sources);
     Error reset(Nodes destinations, float duration = FLT_MAX);
     Error iterate(Path& path, size_t iterations = 0);
     Error iterate(Path& path, size_t iterations, float fallback_cost);
@@ -59,9 +58,9 @@ private:
     float getCostEstimate(const NodePtr& node, float base_price, const Auction::Bid& bid);
     float findMinCostVisit(Visit& min_cost_visit, const Visit& visit, const Visit& front_visit);
     bool appendMinCostVisit(size_t visit_index, Path& path);
-    bool detectCycle(const Auction::Bid& bid, const Visit& visit, const Visit& front_visit);
-    bool checkCostLimit(const Visit& visit);
+    bool checkCostLimit(const Visit& visit) const;
     bool checkTermination(const Visit& visit) const;
+    bool detectCycle(const Auction::Bid& bid, const Visit& visit, const Visit& front_visit) const;
     float determinePrice(float base_price, float price_limit, float cost, float alternative_cost) const;
 
     Config _config;
