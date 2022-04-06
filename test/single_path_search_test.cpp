@@ -3,7 +3,7 @@
 
 using namespace decentralized_path_auction;
 
-void make_pathway(Graph& graph, Nodes& pathway, Point2D a, Point2D b, size_t n, Node::State state = Node::DEFAULT);
+void make_pathway(Graph& graph, Nodes& pathway, Point a, Point b, size_t n, Node::State state = Node::DEFAULT);
 
 void print_path(const Path& path);
 
@@ -331,8 +331,8 @@ TEST(single_path_search, graph_side_effects) {
 TEST(single_path_search, directional_edge) {
     Graph graph;
     Nodes nodes;
-    nodes.push_back(graph.insertNode(Point2D{0, 0}));
-    nodes.push_back(graph.insertNode(Point2D{1, 1}));
+    nodes.push_back(graph.insertNode(Point{0, 0}));
+    nodes.push_back(graph.insertNode(Point{1, 1}));
     nodes[0]->edges.push_back(nodes[1]);
 
     PathSearch path_search({"A"});

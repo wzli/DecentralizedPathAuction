@@ -3,7 +3,7 @@
 
 using namespace decentralized_path_auction;
 
-void make_pathway(Graph& graph, Nodes& pathway, Point2D a, Point2D b, size_t n, Node::State state = Node::DEFAULT);
+void make_pathway(Graph& graph, Nodes& pathway, Point a, Point b, size_t n, Node::State state = Node::DEFAULT);
 
 void print_path(const Path& path);
 

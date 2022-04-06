@@ -4,7 +4,7 @@
 
 using namespace decentralized_path_auction;
 
-void make_pathway(Graph& graph, Nodes& pathway, Point2D a, Point2D b, size_t n, Node::State state = Node::DEFAULT);
+void make_pathway(Graph& graph, Nodes& pathway, Point a, Point b, size_t n, Node::State state = Node::DEFAULT);
 
 bool save_graph(const Graph& graph, const char* file);
 
@@ -17,8 +17,8 @@ std::vector<Nodes> make_test_graph(Graph& graph);
 
 void print_path(const Path& path) {
     for (auto& visit : path) {
-        printf("{[%.2f %.2f], t: %.2f, d: %.2e, p: %.2f, b: %.2f c:%.2f}\r\n", visit.node->position.x(),
-                visit.node->position.y(), visit.time_estimate, visit.duration, visit.price, visit.base_price,
+        printf("{[%.2f %.2f], t: %.2f, d: %.2e, p: %.2f, b: %.2f c:%.2f}\r\n", visit.node->position.get<0>(),
+                visit.node->position.get<1>(), visit.time_estimate, visit.duration, visit.price, visit.base_price,
                 visit.cost_estimate);
     }
     puts("");
@@ -34,8 +34,8 @@ bool save_paths(const PathSync& path_sync, const char* file) {
     for (auto& info : path_sync.getPaths()) {
         for (auto& visit : info.second.path) {
             auto& bids = visit.node->auction.getBids();
-            fprintf(fp, "\"%s\", %d, %f, %f, %f, %lu\r\n", info.first.c_str(), i, visit.node->position.x(),
-                    visit.node->position.y(), visit.price, std::distance(bids.begin(), bids.find(visit.price)));
+            fprintf(fp, "\"%s\", %d, %f, %f, %f, %lu\r\n", info.first.c_str(), i, visit.node->position.get<0>(),
+                    visit.node->position.get<1>(), visit.price, std::distance(bids.begin(), bids.find(visit.price)));
         }
         ++i;
     }
@@ -218,7 +218,7 @@ TEST(multi_path_search, head_on_desperate_fallback) {
         multi_iterate(agents, 40, 1000, false);
         ASSERT_GT(agents[0].path.size(), 1u);
         ASSERT_GT(agents[1].path.size(), 1u);
-        ASSERT_LT(agents[0].path.back().node->position.x(), agents[1].path.back().node->position.x());
+        ASSERT_LT(agents[0].path.back().node->position.get<0>(), agents[1].path.back().node->position.get<0>());
     }
     // try again with B first to plan
     {
@@ -229,7 +229,7 @@ TEST(multi_path_search, head_on_desperate_fallback) {
         multi_iterate(agents, 40, 1000, false);
         ASSERT_GT(agents[0].path.size(), 1u);
         ASSERT_GT(agents[1].path.size(), 1u);
-        ASSERT_GT(agents[0].path.back().node->position.x(), agents[1].path.back().node->position.x());
+        ASSERT_GT(agents[0].path.back().node->position.get<0>(), agents[1].path.back().node->position.get<0>());
     }
 }
 
@@ -624,7 +624,7 @@ TEST(multi_path_search, same_src_node_passive) {
                 Agent({"B"}, {nodes[5], nodes[6]}, {}),
         };
         multi_iterate(agents, 5, 100, false);
-        ASSERT_LT(agents[0].path.front().node->position.x(), agents[1].path.front().node->position.x());
+        ASSERT_LT(agents[0].path.front().node->position.get<0>(), agents[1].path.front().node->position.get<0>());
     }
     // repeat above with swapped order
     {
@@ -633,7 +633,7 @@ TEST(multi_path_search, same_src_node_passive) {
                 Agent({"A"}, {nodes[5], nodes[4]}, {}),
         };
         multi_iterate(agents, 5, 100, false);
-        ASSERT_GT(agents[0].path.front().node->position.x(), agents[1].path.front().node->position.x());
+        ASSERT_GT(agents[0].path.front().node->position.get<0>(), agents[1].path.front().node->position.get<0>());
     }
 }
 

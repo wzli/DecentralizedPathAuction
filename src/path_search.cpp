@@ -206,7 +206,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
     min_cost_visit = {nullptr, FLT_MAX};
     // loop over each adjacent node
     for (const auto& adj_node : visit.node->edges) {
-        DEBUG_PRINTF("->[%f %f] \r\n", adj_node->position.x(), adj_node->position.y());
+        DEBUG_PRINTF("->[%f %f] \r\n", adj_node->position.get<0>(), adj_node->position.get<1>());
         // skip loopback nodes
         if (adj_node == visit.node) {
             DEBUG_PRINTF("Node Loopback\r\n");
@@ -295,7 +295,7 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     // remove edges to deleted nodes
     auto& edges = visit.node->edges;
     edges.erase(std::remove_if(edges.begin(), edges.end(), std::not_fn(Node::validate)), edges.end());
-    DEBUG_PRINTF("[%f %f] ID %lu Base %f\r\n", visit.node->position.x(), visit.node->position.y(), baseBid(visit).id(),
+    DEBUG_PRINTF("[%f %f] ID %lu Base %f\r\n", visit.node->position.get<0>(), visit.node->position.get<1>(), baseBid(visit).id(),
             visit.base_price);
     // find min cost visit
     Visit min_cost_visit;

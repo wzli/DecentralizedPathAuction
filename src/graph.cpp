@@ -25,7 +25,7 @@ bool NodeRTree::removeNode(NodePtr node) {
     return _nodes.remove({pos, std::move(node)});
 }
 
-NodePtr NodeRTree::findNearestNode(Point2D position, Node::State criterion) const {
+NodePtr NodeRTree::findNearestNode(Point position, Node::State criterion) const {
     return query(bg::index::nearest(position, 1) && bg::index::satisfies([criterion](const RTreeNode& rt_node) {
         return rt_node.second->state <= criterion;
     }));

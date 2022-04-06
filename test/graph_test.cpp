@@ -3,7 +3,7 @@
 
 using namespace decentralized_path_auction;
 
-void make_pathway(Graph& graph, Nodes& pathway, Point2D a, Point2D b, size_t n, Node::State state = Node::DEFAULT) {
+void make_pathway(Graph& graph, Nodes& pathway, Point a, Point b, size_t n, Node::State state = Node::DEFAULT) {
     ASSERT_GT(n, 1u);
     auto pos = a;
     auto inc = b;
@@ -23,11 +23,11 @@ void make_pathway(Graph& graph, Nodes& pathway, Point2D a, Point2D b, size_t n, 
 
 void print_graph(const Graph& graph) {
     auto rtree = graph.getNodes();
-    for (auto qit = rtree.qbegin(bg::index::nearest(Point2D{0, 0}, rtree.size())); qit != rtree.qend(); ++qit) {
+    for (auto qit = rtree.qbegin(bg::index::nearest(Point{0, 0}, rtree.size())); qit != rtree.qend(); ++qit) {
         const auto& [pos, node] = *qit;
-        printf("(%.2f, %.2f):", pos.x(), pos.y());
+        printf("(%.2f, %.2f):", pos.get<0>(), pos.get<1>());
         for (const auto& adj_node : node->edges) {
-            printf(" (%.2f, %.2f, %u)", adj_node->position.x(), adj_node->position.y(), adj_node->state);
+            printf(" (%.2f, %.2f, %u)", adj_node->position.get<0>(), adj_node->position.get<1>(), adj_node->state);
         }
         puts("");
     }
@@ -41,10 +41,10 @@ bool save_graph_dot(const Graph& graph, const char* file) {
     }
     fputs("digraph {", fp);
     for (auto& [pos, node] : graph.getNodes()) {
-        fprintf(fp, "  \"%f\n%f\" [pos=\"%f,%f!\"]\r\n", pos.x(), pos.y(), pos.x(), pos.y());
+        fprintf(fp, "  \"%f\n%f\" [pos=\"%f,%f!\"]\r\n", pos.get<0>(), pos.get<1>(), pos.get<0>(), pos.get<1>());
         for (auto& adj_node : node->edges) {
-            fprintf(fp, "    \"%f\n%f\" -> \"%f\n%f\"\r\n", pos.x(), pos.y(), adj_node->position.x(),
-                    adj_node->position.y());
+            fprintf(fp, "    \"%f\n%f\" -> \"%f\n%f\"\r\n", pos.get<0>(), pos.get<1>(), adj_node->position.get<0>(),
+                    adj_node->position.get<1>());
         }
     }
     fputs("}", fp);
@@ -59,7 +59,7 @@ bool save_graph(const Graph& graph, const char* file) {
     fprintf(fp, "src_pos_x, src_pos_y, dst_pos_x, dst_pos_y\r\n");
     for (auto& [pos, node] : graph.getNodes()) {
         for (auto& adj_node : node->edges) {
-            fprintf(fp, "%f, %f, %f, %f\r\n", pos.x(), pos.y(), adj_node->position.x(), adj_node->position.y());
+            fprintf(fp, "%f, %f, %f, %f\r\n", pos.get<0>(), pos.get<1>(), adj_node->position.get<0>(), adj_node->position.get<1>());
         }
     }
     return !fclose(fp);
@@ -121,7 +121,7 @@ TEST(graph, remove_node) {
     // reject delete non-existing node
     NodePtr node(new Node{{0, 0}});
     ASSERT_FALSE(graph.removeNode(std::move(node)));
-    ASSERT_FALSE(graph.removeNode(Point2D{0, 0}));
+    ASSERT_FALSE(graph.removeNode(Point{0, 0}));
     // valid delete
     node = NodePtr(new Node{{0, 0}});
     node->edges.push_back(nullptr);
@@ -138,7 +138,7 @@ TEST(graph, remove_node) {
 TEST(graph, find_node) {
     Graph graph;
     EXPECT_FALSE(graph.findNode({0, 0}));
-    ASSERT_TRUE(graph.insertNode(Point2D{0, 0}));
+    ASSERT_TRUE(graph.insertNode(Point{0, 0}));
     EXPECT_TRUE(graph.findNode({0, 0}));
     EXPECT_TRUE(graph.findNode({0, 0}));
 }

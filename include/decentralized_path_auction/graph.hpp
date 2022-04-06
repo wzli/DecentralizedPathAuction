@@ -9,10 +9,15 @@
 namespace decentralized_path_auction {
 
 namespace bg = boost::geometry;
-using Point2D = bg::model::d2::point_xy<float>;
+
+#ifndef DPA_NDIM
+  #define DPA_NDIM 2
+#endif
+
+using Point = bg::model::point<float, DPA_NDIM, bg::cs::cartesian>;
 
 struct Node {
-    const Point2D position;
+    const Point position;
     enum State { DEFAULT, NO_PARKING, NO_STOPPING, DISABLED, DELETED } state = DEFAULT;
     std::vector<std::shared_ptr<Node>> edges = {};
     Auction auction = {};
@@ -36,7 +41,7 @@ using Path = std::vector<Visit>;
 
 class NodeRTree {
 public:
-    using RTreeNode = std::pair<Point2D, NodePtr>;
+    using RTreeNode = std::pair<Point, NodePtr>;
     using RTree = bg::index::rtree<RTreeNode, bg::index::rstar<16>>;
 
     bool insertNode(NodePtr node);
@@ -51,8 +56,8 @@ public:
         return q == _nodes.qend() ? nullptr : std::move(q->second);
     }
 
-    NodePtr findNode(Point2D position) const { return query(bg::index::contains(position)); }
-    NodePtr findNearestNode(Point2D position, Node::State criterion) const;
+    NodePtr findNode(Point position) const { return query(bg::index::contains(position)); }
+    NodePtr findNearestNode(Point position, Node::State criterion) const;
     NodePtr findAnyNode(Node::State criterion) const;
 
     const RTree& getNodes() const { return _nodes; }
@@ -70,11 +75,11 @@ public:
 
     void clearNodes() override;
     bool removeNode(NodePtr node) override;
-    bool removeNode(Point2D position) { return removeNode(findNode(position)); }
+    bool removeNode(Point position) { return removeNode(findNode(position)); }
 
     using NodeRTree::insertNode;
     template <class... Args>
-    NodePtr insertNode(Point2D position, Args&&... args) {
+    NodePtr insertNode(Point position, Args&&... args) {
         auto node = NodePtr(new Node{position, std::forward<Args>(args)...});
         return insertNode(node) ? std::move(node) : nullptr;
     }
