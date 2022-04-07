@@ -679,3 +679,24 @@ TEST(multi_path_search, dodge_left_right) {
         ASSERT_EQ(agents[2].path.back().node, nodes[2][8]);
     }
 }
+
+TEST(multi_path_search, push_line) {
+    Graph graph;
+    auto nodes = make_test_graph(graph);
+    {
+        std::vector<Agent> agents = {
+                Agent({"A"}, {nodes[0][0]}, {}),
+                Agent({"B"}, {nodes[0][1]}, {}),
+                Agent({"C"}, {nodes[0][2]}, {}),
+                Agent({"D"}, {nodes[0][3]}, {}),
+                Agent({"E"}, {nodes[0][4]}, {}),
+                Agent({"F"}, {nodes[0][5]}, {}),
+                Agent({"G"}, {nodes[0][6]}, {nodes[1][0]}),
+        };
+        multi_iterate(agents, 100, 10000, false);
+        for (auto& agent : agents) {
+            ASSERT_GT(agent.path.back().node->position.get<1>(), 0);
+        }
+        ASSERT_EQ(agents.back().path.back().node, nodes[1][0]);
+    }
+}
