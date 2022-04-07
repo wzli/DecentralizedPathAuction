@@ -35,7 +35,7 @@ bool save_paths(const PathSync& path_sync, const char* file) {
         for (auto& visit : info.second.path) {
             auto& bids = visit.node->auction.getBids();
             fprintf(fp, "\"%s\", %d, %f, %f, %f, %lu\r\n", info.first.c_str(), i, visit.node->position.get<0>(),
-                    visit.node->position.get<1>(), visit.price, std::distance(bids.begin(), bids.find(visit.price)));
+                    visit.node->position.get<1>(), visit.price, std::distance(bids.find(visit.price), bids.end()));
         }
         ++i;
     }
