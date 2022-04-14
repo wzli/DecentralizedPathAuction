@@ -11,7 +11,7 @@ namespace decentralized_path_auction {
 namespace bg = boost::geometry;
 
 #ifndef DPA_NDIM
-  #define DPA_NDIM 2
+  #define DPA_NDIM 3
 #endif
 
 using Point = bg::model::point<float, DPA_NDIM, bg::cs::cartesian>;

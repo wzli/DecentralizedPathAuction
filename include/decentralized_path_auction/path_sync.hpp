@@ -35,6 +35,8 @@ public:
         size_t progress = 0;
     };
 
+    // <Error, blocked_progress, remaining_duration>
+    using Status = std::tuple<Error, size_t, float>;
     using Paths = std::unordered_map<std::string, PathInfo>;
 
     // non-copyable but movable
@@ -48,8 +50,7 @@ public:
     Error removePath(const std::string& agent_id);
     Error clearPaths();
 
-    // <Error, blocked_progress, remaining_duration>
-    std::tuple<Error, size_t, float> checkWaitConditions(const std::string& agent_id) const;
+    Status checkWaitConditions(const std::string& agent_id) const;
 
     const Paths& getPaths() const { return _paths; }
 
