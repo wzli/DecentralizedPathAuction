@@ -103,7 +103,7 @@ PathSync::Error PathSync::clearPaths() {
     return static_cast<Error>(error);
 }
 
-std::tuple<PathSync::Error, size_t, float> PathSync::checkWaitConditions(const std::string& agent_id) const {
+PathSync::WaitStatus PathSync::checkWaitStatus(const std::string& agent_id) const {
     // find path
     auto found = _paths.find(agent_id);
     if (found == _paths.end()) {

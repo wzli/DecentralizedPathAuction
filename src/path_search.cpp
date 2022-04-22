@@ -295,8 +295,8 @@ bool PathSearch::appendMinCostVisit(size_t visit_index, Path& path) {
     // remove edges to deleted nodes
     auto& edges = visit.node->edges;
     edges.erase(std::remove_if(edges.begin(), edges.end(), std::not_fn(Node::validate)), edges.end());
-    DEBUG_PRINTF("[%f %f] ID %lu Base %f\r\n", visit.node->position.get<0>(), visit.node->position.get<1>(), baseBid(visit).id(),
-            visit.base_price);
+    DEBUG_PRINTF("[%f %f] ID %lu Base %f\r\n", visit.node->position.get<0>(), visit.node->position.get<1>(),
+            baseBid(visit).id(), visit.base_price);
     // find min cost visit
     Visit min_cost_visit;
     float min_cost = findMinCostVisit(min_cost_visit, visit, path.front());

@@ -73,12 +73,12 @@ void multi_iterate(std::vector<Agent>& agents, int rounds, size_t iterations, bo
             auto update_error = path_sync.updatePath(agent.id(), agent.path, agent.path_id++);
             ASSERT_EQ(update_error, PathSync::SUCCESS);
             if (std::all_of(agents.begin(), agents.end(), [&](Agent& a) {
-                    auto error = std::get<0>(path_sync.checkWaitConditions(a.id()));
-                    if (error == PathSync::SOURCE_NODE_OUTBID) {
+                    auto status = path_sync.checkWaitStatus(a.id());
+                    if (status.error == PathSync::SOURCE_NODE_OUTBID) {
                         a.path = {a.path_search.selectSource(a.src_candidates)};
                     }
-                    return error == PathSync::SUCCESS ||
-                           (error == PathSync::REMAINING_DURATION_INFINITE && allow_block);
+                    return status.error == PathSync::SUCCESS ||
+                           (status.error == PathSync::REMAINING_DURATION_INFINITE && allow_block);
                 })) {
                 rounds = 0;
                 break;

@@ -59,7 +59,8 @@ bool save_graph(const Graph& graph, const char* file) {
     fprintf(fp, "src_pos_x, src_pos_y, dst_pos_x, dst_pos_y\r\n");
     for (auto& [pos, node] : graph.getNodes()) {
         for (auto& adj_node : node->edges) {
-            fprintf(fp, "%f, %f, %f, %f\r\n", pos.get<0>(), pos.get<1>(), adj_node->position.get<0>(), adj_node->position.get<1>());
+            fprintf(fp, "%f, %f, %f, %f\r\n", pos.get<0>(), pos.get<1>(), adj_node->position.get<0>(),
+                    adj_node->position.get<1>());
         }
     }
     return !fclose(fp);
