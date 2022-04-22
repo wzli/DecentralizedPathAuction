@@ -44,11 +44,16 @@ public:
     PathSearch(Config config)
             : _config(std::move(config)) {}
 
-    Config& editConfig() { return _config; }
+    const Config& getConfig() const { return _config; }
+    Config& getConfig() { return _config; }
+
+    const NodeRTree& getDestinations() const { return _dst_nodes; }
+    Error setDestinations(Nodes destinations, float duration = FLT_MAX);
+
     Visit selectSource(const Nodes& sources);
-    Error reset(Nodes destinations, float duration = FLT_MAX);
     Error iterate(Path& path, size_t iterations = 0);
     Error iterate(Path& path, size_t iterations, float fallback_cost);
+    void resetCostEstimates() { ++_search_nonce; }
 
     static float travelDistance(const NodePtr&, const NodePtr& cur, const NodePtr& next) {
         return bg::distance(cur->position, next->position);

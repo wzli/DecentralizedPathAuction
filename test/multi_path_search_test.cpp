@@ -54,10 +54,10 @@ struct Agent {
             , path{{path_search.selectSource(src)}}
             , src_candidates(std::move(src))
             , fallback_cost(fb_cost) {
-        path_search.reset(std::move(dst), dst_dur);
+        path_search.setDestinations(std::move(dst), dst_dur);
     }
 
-    const std::string& id() { return path_search.editConfig().agent_id; }
+    const std::string& id() { return path_search.getConfig().agent_id; }
 };
 
 void multi_iterate(std::vector<Agent>& agents, int rounds, size_t iterations, bool allow_block, bool print = false) {

@@ -53,13 +53,12 @@ Visit PathSearch::selectSource(const Nodes& sources) {
     return {min_node, determinePrice(base_price, FLT_MAX, min_cost, alt_cost), 0, base_price};
 }
 
-PathSearch::Error PathSearch::reset(Nodes destinations, float duration) {
+PathSearch::Error PathSearch::setDestinations(Nodes destinations, float duration) {
     if (duration < 0) {
         return DESTINATION_DURATION_NEGATIVE;
     }
     _dst_duration = duration;
-    // reset cost estimates
-    ++_search_nonce;
+    resetCostEstimates();
     // reset destination nodes
     _dst_nodes.clearNodes();
     for (auto& node : destinations) {

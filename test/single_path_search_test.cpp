@@ -28,22 +28,22 @@ std::vector<Nodes> make_test_graph(Graph& graph) {
     return rows;
 }
 
-TEST(single_path_search, reset_input_checks) {
+TEST(single_path_search, set_destinations_input_checks) {
     PathSearch path_search({"A"});
     NodePtr node(new Node{{0, 0}});
     // valid destination
-    EXPECT_EQ(path_search.reset({node}), PathSearch::SUCCESS);
+    EXPECT_EQ(path_search.setDestinations({node}), PathSearch::SUCCESS);
     // passive destination
-    EXPECT_EQ(path_search.reset({}), PathSearch::SUCCESS);
+    EXPECT_EQ(path_search.setDestinations({}), PathSearch::SUCCESS);
     // negative destination duration
-    EXPECT_EQ(path_search.reset({}, -1), PathSearch::DESTINATION_DURATION_NEGATIVE);
+    EXPECT_EQ(path_search.setDestinations({}, -1), PathSearch::DESTINATION_DURATION_NEGATIVE);
     // invalid destination
-    EXPECT_EQ(path_search.reset({nullptr}), PathSearch::DESTINATION_NODE_INVALID);
+    EXPECT_EQ(path_search.setDestinations({nullptr}), PathSearch::DESTINATION_NODE_INVALID);
     // reject duplicate node
-    EXPECT_EQ(path_search.reset({node, node}), PathSearch::DESTINATION_NODE_DUPLICATED);
+    EXPECT_EQ(path_search.setDestinations({node, node}), PathSearch::DESTINATION_NODE_DUPLICATED);
     // reject no parking
     node->state = Node::NO_PARKING;
-    EXPECT_EQ(path_search.reset({node}), PathSearch::DESTINATION_NODE_NO_PARKING);
+    EXPECT_EQ(path_search.setDestinations({node}), PathSearch::DESTINATION_NODE_NO_PARKING);
 }
 
 TEST(single_path_search, iterate_input_checks) {
@@ -52,7 +52,7 @@ TEST(single_path_search, iterate_input_checks) {
     Path path = {{node}};
 
     // config validation
-    auto& config = path_search.editConfig();
+    auto& config = path_search.getConfig();
 
     config.agent_id.clear();
     EXPECT_EQ(path_search.iterate(path), PathSearch::CONFIG_AGENT_ID_EMPTY);
@@ -99,7 +99,7 @@ TEST(single_path_search, trivial_path) {
     ASSERT_EQ(path[0].cost_estimate, 0);
     ASSERT_EQ(path[0].time_estimate, 0);
     // same source as destination
-    path_search.reset({nodes[0][0]});
+    path_search.setDestinations({nodes[0][0]});
     ASSERT_EQ(path_search.iterate(path), PathSearch::SUCCESS);
     ASSERT_EQ(path.size(), 1u);
     ASSERT_EQ(path[0].node, nodes[0][0]);
@@ -121,7 +121,7 @@ TEST(single_path_search, manual_iterations) {
     auto nodes = make_test_graph(graph);
     PathSearch path_search({"A"});
     // try to find the shortest path
-    ASSERT_EQ(path_search.reset({nodes[2][5]}), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search.setDestinations({nodes[2][5]}), PathSearch::SUCCESS);
     Path path = {{nodes[0][5]}};
     int calls;
     for (calls = 0; calls < 200; ++calls) {
@@ -159,7 +159,7 @@ TEST(single_path_search, manual_iterations) {
     EXPECT_EQ(path.back().node, nodes[2][5]);
 
     // try a source and different destination
-    ASSERT_EQ(path_search.reset({nodes[1][5]}), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search.setDestinations({nodes[1][5]}), PathSearch::SUCCESS);
     path = {{nodes[2][9]}};
     for (calls = 0; calls < 200; ++calls) {
         auto error = path_search.iterate(path);
@@ -256,7 +256,7 @@ TEST(single_path_search, passive_fallback) {
     // set cost limit to 50
     PathSearch path_search({"B"});
     // set destination with expected travel cost 100
-    ASSERT_EQ(path_search.reset({nodes[0][9]}), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search.setDestinations({nodes[0][9]}), PathSearch::SUCCESS);
     // set source node as no parking
     nodes[0][0]->state = Node::NO_PARKING;
     nodes[0][1]->state = Node::NO_PARKING;
@@ -271,7 +271,7 @@ TEST(single_path_search, multiple_destinations) {
     auto nodes = make_test_graph(graph);
     PathSearch path_search({"A"});
     // set multiple destinations
-    ASSERT_EQ(path_search.reset({{nodes[1][9], nodes[2][9]}}), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search.setDestinations({{nodes[1][9], nodes[2][9]}}), PathSearch::SUCCESS);
 
     // find the closest destination
     Path path = {{nodes[0][0]}};
@@ -295,7 +295,7 @@ TEST(single_path_search, disabled_node) {
     PathSearch path_search({"A"});
     // set multiple destinations but block the path to the closest one
     nodes[1][5]->state = Node::DISABLED;
-    ASSERT_EQ(path_search.reset({{nodes[1][9], nodes[2][9]}}), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search.setDestinations({{nodes[1][9], nodes[2][9]}}), PathSearch::SUCCESS);
 
     // find the closest destination
     Path path = {{nodes[0][0]}};
@@ -321,7 +321,7 @@ TEST(single_path_search, graph_side_effects) {
     ASSERT_FALSE(graph.getNodes().empty());
     {
         PathSearch path_search({"A"});
-        ASSERT_EQ(path_search.reset({{nodes[0], nodes[9]}}), PathSearch::SUCCESS);
+        ASSERT_EQ(path_search.setDestinations({{nodes[0], nodes[9]}}), PathSearch::SUCCESS);
     }
     for (auto& node : nodes) {
         ASSERT_NE(node->state, Node::DELETED);
@@ -338,13 +338,13 @@ TEST(single_path_search, directional_edge) {
     PathSearch path_search({"A"});
     // try to go from 0 to 1
     Path path = {{nodes[0]}};
-    ASSERT_EQ(path_search.reset({nodes[1]}), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search.setDestinations({nodes[1]}), PathSearch::SUCCESS);
     ASSERT_EQ(path_search.iterate(path, 100), PathSearch::SUCCESS);
     ASSERT_EQ(path.size(), 2u);
     ASSERT_EQ(path.back().node, nodes[1]);
     // try to go from 1 to 0
     path = {{nodes[1]}};
-    ASSERT_EQ(path_search.reset({nodes[0]}), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search.setDestinations({nodes[0]}), PathSearch::SUCCESS);
     ASSERT_EQ(path_search.iterate(path, 100), PathSearch::ITERATIONS_REACHED);
     ASSERT_EQ(path.size(), 1u);
     ASSERT_EQ(path.back().node, nodes[1]);
