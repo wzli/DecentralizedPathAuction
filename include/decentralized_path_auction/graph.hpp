@@ -21,6 +21,7 @@ struct Node {
     enum State { DEFAULT, NO_PARKING, NO_STOPPING, DISABLED, DELETED } state = DEFAULT;
     std::vector<std::shared_ptr<Node>> edges = {};
     Auction auction = {};
+    void* custom_data = nullptr;
 
     static bool validate(const std::shared_ptr<Node>& node) { return node && node->state != Node::DELETED; }
 };
