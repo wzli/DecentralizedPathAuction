@@ -108,7 +108,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     if (checkTermination(src)) {
         src.duration = _dst_duration;
         path.resize(1);
-        return SUCCESS;
+        return checkCostLimit(src) ? COST_LIMIT_EXCEEDED : SUCCESS;
     }
     // allocate cost lookup
     _cost_estimates.resize(DenseId<Auction::Bid>::count());
@@ -126,7 +126,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     for (int visit_index = path.size() - 1; visit_index >= 0; --visit_index) {
         appendMinCostVisit(visit_index, path);
     }
-    if (checkCostLimit(path.front())) {
+    if (checkCostLimit(src)) {
         return COST_LIMIT_EXCEEDED;
     }
     if (checkTermination(path.back())) {
@@ -140,7 +140,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
         DEBUG_PRINTF("IDX %lu ITT %lu\r\n", visit_index, iterations);
         // check previous visit if cost increased otherwise start again from last visit
         if (!appendMinCostVisit(visit_index, path) || visit_index == 0) {
-            if (checkCostLimit(path.front())) {
+            if (checkCostLimit(src)) {
                 return COST_LIMIT_EXCEEDED;
             }
             if (checkTermination(path.back())) {
@@ -163,6 +163,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations, float fallb
         return error;
     }
     // calculate fallback path by swapping out destination and cost estimates
+    // the seperate fallback cache allows the original search to be resumed without cost reset
     path.resize(1);
     auto dst_nodes = std::move(_dst_nodes);
     assert(_dst_nodes.getNodes().empty());

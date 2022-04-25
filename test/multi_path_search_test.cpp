@@ -700,3 +700,51 @@ TEST(multi_path_search, push_line) {
         ASSERT_EQ(agents.back().path.back().node, nodes[1][0]);
     }
 }
+
+TEST(multi_path_search, blocking_fallback) {
+    // input
+    // A   00-01-02-03-04-05-06-07-08-09
+    // |   |                           |
+    // | B 10-11-12-13-14-15-16-17-18-19
+    // v   |                           |
+    // A   20-21-22-23-24-25-26-27-28-29
+    //
+    // A wants to go from 00 to 20, but B is blocking 10
+    Graph graph;
+    auto nodes = make_test_graph(graph);
+    nodes[0][9]->edges.push_back(nodes[1][9]);
+    nodes[1][9]->edges.push_back(nodes[0][9]);
+    nodes[1][9]->edges.push_back(nodes[2][9]);
+    nodes[2][9]->edges.push_back(nodes[1][9]);
+    {
+        // B will move out of the way if it has low fallback cost limit
+        std::vector<Agent> agents = {
+                Agent({"A"}, {nodes[0][0]}, {nodes[2][0]}),
+                Agent({"B"}, {nodes[1][0]}, {nodes[1][0]}, 100),
+        };
+        multi_iterate(agents, 100, 10000, false);
+
+        ASSERT_EQ(agents.front().path.front().node, nodes[0][0]);
+        ASSERT_EQ(agents.front().path.back().node, nodes[2][0]);
+        ASSERT_EQ(agents.front().path.size(), 3);
+
+        ASSERT_EQ(agents.back().path.front().node, nodes[1][0]);
+        ASSERT_EQ(agents.back().path.back().node, nodes[1][1]);
+        ASSERT_EQ(agents.back().path.size(), 2);
+    }
+    {
+        // Otherwise B will refuse to move, forcing A to go around
+        std::vector<Agent> agents = {
+                Agent({"A"}, {nodes[0][0]}, {nodes[2][0]}),
+                Agent({"B"}, {nodes[1][0]}, {nodes[1][0]}, 1000),
+        };
+        multi_iterate(agents, 100, 10000, false);
+
+        ASSERT_EQ(agents.front().path.front().node, nodes[0][0]);
+        ASSERT_EQ(agents.front().path.back().node, nodes[2][0]);
+        ASSERT_EQ(agents.front().path.size(), 21);
+
+        ASSERT_EQ(agents.back().path.front().node, nodes[1][0]);
+        ASSERT_EQ(agents.back().path.size(), 1);
+    }
+}
