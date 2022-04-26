@@ -126,7 +126,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     for (int visit_index = path.size() - 1; visit_index >= 0; --visit_index) {
         appendMinCostVisit(visit_index, path);
     }
-    if (checkCostLimit(src)) {
+    if (checkCostLimit(path.front())) {
         return COST_LIMIT_EXCEEDED;
     }
     if (checkTermination(path.back())) {
@@ -140,7 +140,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
         DEBUG_PRINTF("IDX %lu ITT %lu\r\n", visit_index, iterations);
         // check previous visit if cost increased otherwise start again from last visit
         if (!appendMinCostVisit(visit_index, path) || visit_index == 0) {
-            if (checkCostLimit(src)) {
+            if (checkCostLimit(path.front())) {
                 return COST_LIMIT_EXCEEDED;
             }
             if (checkTermination(path.back())) {
