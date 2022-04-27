@@ -31,11 +31,6 @@ PathSync::Error PathSync::updatePath(const std::string& agent_id, const Path& pa
     if (path.front().node->auction.getHighestBid(agent_id)->first > path.front().price) {
         return SOURCE_NODE_OUTBID;
     }
-    auto& info = _paths[agent_id];
-    // check path id
-    if (path_id <= info.path_id && !info.path.empty()) {
-        return PATH_ID_STALE;
-    }
     // check if bid price is already taken by some other agent
     for (auto& visit : path) {
         auto& bids = visit.node->auction.getBids();
@@ -43,6 +38,11 @@ PathSync::Error PathSync::updatePath(const std::string& agent_id, const Path& pa
         if (found != bids.end() && found->second.bidder != agent_id) {
             return VISIT_PRICE_ALREADY_EXIST;
         }
+    }
+    auto& info = _paths[agent_id];
+    // check path id
+    if (path_id <= info.path_id && !info.path.empty()) {
+        return PATH_ID_STALE;
     }
     // remove old bids and insert new ones
     auto remove_error = removeBids(agent_id, info.path.begin() + info.progress, info.path.end());
@@ -56,6 +56,10 @@ PathSync::Error PathSync::updatePath(const std::string& agent_id, const Path& pa
         // revert bids back to previous path
         removeBids(agent_id, path.begin(), path.end());
         insertBids(agent_id, info.path.begin() + info.progress, info.path.end());
+        // remove path entry if it's empty
+        if (info.path.empty()) {
+            _paths.erase(agent_id);
+        }
         return PATH_CAUSES_CYCLE;
     }
     // update path
