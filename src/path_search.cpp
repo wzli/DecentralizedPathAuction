@@ -232,12 +232,17 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
                 DEBUG_PRINTF("Skipped Self\r\n");
                 continue;
             }
+            // skip if price is infinite
+            if (bid_price >= FLT_MAX) {
+                DEBUG_PRINTF("Infinite Price\r\n");
+            }
             // skip if there is no price gap between base bid and next higher bid
-            if (bid_price >= FLT_MAX ||
-                    (higher_bid != adj_bids.end() && higher_bid->second.bidder != _config.agent_id &&
-                            std::nextafter(bid_price, FLT_MAX) >= higher_bid->first)) {
-                DEBUG_PRINTF("No Price Gap\r\n");
-                continue;
+            if (higher_bid != adj_bids.end() && higher_bid->second.bidder != _config.agent_id) {
+                float mid_price = 0.5f * (bid_price + higher_bid->first);
+                if (mid_price == bid_price || mid_price == higher_bid->first) {
+                    DEBUG_PRINTF("No Price Gap\r\n");
+                    continue;
+                }
             }
             // skip if bid came from previous visit
             float adj_cost = getCostEstimate(adj_node, bid_price, bid);
