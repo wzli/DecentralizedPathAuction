@@ -364,7 +364,7 @@ bool PathSearch::detectCycle(const Auction::Bid& bid, const Visit& visit, const 
 
 float PathSearch::determinePrice(float base_price, float price_limit, float cost, float alternative_cost) const {
     assert(cost <= alternative_cost);
-    assert(base_price <= price_limit);
+    assert(base_price < price_limit);
     base_price = std::nextafter(base_price, FLT_MAX);
     // just raise by price increment if alternative doesn't exist
     float min_price = base_price + _config.price_increment;
@@ -378,10 +378,7 @@ float PathSearch::determinePrice(float base_price, float price_limit, float cost
     }
     // willing to pay additionally up to the surplus benefit compared to best alternative
     float price = base_price + alternative_cost - cost;
-    if (price <= min_price) {
-        return min_price;
-    }
-    return std::min(price, price_limit - _config.price_increment);
+    return std::min(price <= min_price ? min_price : price, price_limit - _config.price_increment);
 }
 
 }  // namespace decentralized_path_auction
