@@ -32,6 +32,7 @@ public:
 
     Error insertBid(const std::string& bidder, float price, float duration, Bid*& prev);
     Error removeBid(const std::string& bidder, float price);
+    Error changeBid(float old_price, float new_price);
     void clearBids(float start_price) { this->~Auction(), new (this) Auction(start_price); }
 
     const Bids& getBids() const { return _bids; }

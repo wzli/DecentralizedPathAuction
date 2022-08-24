@@ -91,6 +91,24 @@ Auction::Error Auction::removeBid(const std::string& bidder, float price) {
     return SUCCESS;
 }
 
+Auction::Error Auction::changeBid(float old_price, float new_price) {
+    // find old bid
+    auto found = _bids.find(old_price);
+    if (found == _bids.end()) {
+        return PRICE_NOT_FOUND;
+    }
+    // insert new bid
+    auto bid = &found->second;
+    if (auto error = insertBid(bid->bidder, new_price, bid->duration, bid)) {
+        return error;
+    }
+    // remove old bid
+    if (auto error = removeBid(bid->bidder, old_price)) {
+        return error;
+    }
+    return SUCCESS;
+}
+
 Auction::Bids::const_iterator Auction::getHigherBid(float price, const std::string& exclude_bidder) const {
     auto bid = _bids.upper_bound(price);
     while (!exclude_bidder.empty() && bid != _bids.end() && bid->second.bidder == exclude_bidder) {

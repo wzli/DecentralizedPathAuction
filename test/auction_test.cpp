@@ -116,6 +116,31 @@ TEST(auction, remove_bid) {
     check_auction_links(bids);
 }
 
+TEST(auction, change_bid) {
+    Auction auction(0);
+    Auction::Bid* prev = nullptr;
+    for (int i = 1; i <= 4; ++i) {
+        EXPECT_EQ(auction.insertBid("A", i, 0, prev), Auction::SUCCESS);
+    }
+    EXPECT_EQ(auction.changeBid(1, 2), Auction::PRICE_ALREADY_EXIST);
+    for (int i = 1; i <= 4; ++i) {
+        EXPECT_EQ(auction.changeBid(i, i + 5), Auction::SUCCESS);
+    }
+
+    auto bid = auction.getBids().begin();
+    for (int i = 1; i <= 4; ++i) {
+        ++bid;
+        EXPECT_EQ(bid->first, i + 5);
+    }
+    int count = 0;
+    auto p = &auction.getHighestBid()->second;
+    while (p) {
+        p = p->prev;
+        ++count;
+    }
+    EXPECT_EQ(count, 4);
+}
+
 TEST(auction, get_higher_bid) {
     Auction auction(0);
     EXPECT_EQ(auction.getHigherBid(0), auction.getBids().end());
