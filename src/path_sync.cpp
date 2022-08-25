@@ -67,7 +67,7 @@ PathSync::Error PathSync::updatePath(const std::string& agent_id, const Path& pa
     return remove_error;
 }
 
-PathSync::Error PathSync::updateProgress(const std::string& agent_id, size_t progress, size_t path_id) {
+PathSync::Error PathSync::updateProgress(const std::string& agent_id, size_t progress, size_t target, size_t path_id) {
     auto found = _paths.find(agent_id);
     if (found == _paths.end()) {
         return AGENT_ID_NOT_FOUND;
@@ -83,9 +83,42 @@ PathSync::Error PathSync::updateProgress(const std::string& agent_id, size_t pro
         return PROGRESS_DECREASE_DENIED;
     }
     // remove bids upto the new progress
-    auto error = removeBids(agent_id, info.path.begin() + info.progress, info.path.begin() + progress);
+    if (auto error = removeBids(agent_id, info.path.begin() + info.progress, info.path.begin() + progress)) {
+        return error;
+    }
     info.progress = progress;
-    return error;
+    info.target = std::max(info.target, progress);
+
+    // target input checks
+    if (target < info.progress) {
+        return TARGET_BELOW_PROGRESS;
+    }
+
+    if (target < info.target) {
+        return TARGET_DECREASE_DENIED;
+    }
+
+    // claim all nodes up to target
+    for (; info.target < std::min(target + 1, info.path.size()); ++info.target) {
+        auto& path = info.path[info.target];
+        auto& auction = path.node->auction;
+        auto highest = auction.getHighestBid();
+        // claim until agent is no longer highest bidder
+        if (highest->second.bidder != agent_id) {
+            break;
+        }
+        // skip already claimed nodes
+        if (highest->first >= FLT_MAX / 2) {
+            continue;
+        }
+        // claimed nodes with price FLT_MAX / 2
+        if (auction.changeBid(highest->first, FLT_MAX / 2)) {
+            assert(!"could not change bid");
+        }
+        path.price = FLT_MAX / 2;
+    }
+    --info.target;
+    return target < info.path.size() ? SUCCESS : TARGET_EXCEED_PATH_SIZE;
 }
 
 PathSync::Error PathSync::removePath(const std::string& agent_id) {
