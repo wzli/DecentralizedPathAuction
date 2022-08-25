@@ -27,16 +27,14 @@ public:
         AGENT_ID_NOT_FOUND,
         PROGRESS_DECREASE_DENIED,
         PROGRESS_EXCEED_PATH_SIZE,
-        TARGET_BELOW_PROGRESS,
-        TARGET_DECREASE_DENIED,
-        TARGET_EXCEED_PATH_SIZE,
+        PROGRESS_MIN_EXCEED_MAX,
     };
 
     struct PathInfo {
         Path path;
         size_t path_id = 0;
-        size_t progress = 0;
-        size_t target = 0;
+        size_t progress_min = 0;
+        size_t progress_max = 0;
     };
 
     struct WaitStatus {
@@ -52,7 +50,7 @@ public:
     PathSync& operator=(PathSync&& rhs) { return clearPaths(), _paths.swap(rhs._paths), *this; }
 
     Error updatePath(const std::string& agent_id, const Path& path, size_t path_id);
-    Error updateProgress(const std::string& agent_id, size_t progress, size_t target, size_t path_id);
+    Error updateProgress(const std::string& agent_id, size_t progress_min, size_t progress_max, size_t path_id);
 
     // remove all bids from auction when path is removed
     Error removePath(const std::string& agent_id);

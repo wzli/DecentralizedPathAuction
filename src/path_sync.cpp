@@ -45,7 +45,7 @@ PathSync::Error PathSync::updatePath(const std::string& agent_id, const Path& pa
         return PATH_ID_STALE;
     }
     // remove old bids and insert new ones
-    auto remove_error = removeBids(agent_id, info.path.begin() + info.progress, info.path.end());
+    auto remove_error = removeBids(agent_id, info.path.begin() + info.progress_min, info.path.end());
     auto tail_bid = insertBids(agent_id, path.begin(), path.end());
     assert(tail_bid && "insert bid failed");
     // check if new path causes cycle
@@ -55,7 +55,7 @@ PathSync::Error PathSync::updatePath(const std::string& agent_id, const Path& pa
     if (tail_bid->head().detectCycle(cycle_visits, ++cycle_nonce)) {
         // revert bids back to previous path
         removeBids(agent_id, path.begin(), path.end());
-        insertBids(agent_id, info.path.begin() + info.progress, info.path.end());
+        insertBids(agent_id, info.path.begin() + info.progress_min, info.path.end());
         // remove path entry if it's empty
         if (info.path.empty()) {
             _paths.erase(agent_id);
@@ -67,7 +67,8 @@ PathSync::Error PathSync::updatePath(const std::string& agent_id, const Path& pa
     return remove_error;
 }
 
-PathSync::Error PathSync::updateProgress(const std::string& agent_id, size_t progress, size_t target, size_t path_id) {
+PathSync::Error PathSync::updateProgress(
+        const std::string& agent_id, size_t progress_min, size_t progress_max, size_t path_id) {
     auto found = _paths.find(agent_id);
     if (found == _paths.end()) {
         return AGENT_ID_NOT_FOUND;
@@ -76,31 +77,31 @@ PathSync::Error PathSync::updateProgress(const std::string& agent_id, size_t pro
     if (path_id != info.path_id) {
         return PATH_ID_MISMATCH;
     }
-    if (progress >= info.path.size()) {
+    if (progress_min >= info.path.size()) {
         return PROGRESS_EXCEED_PATH_SIZE;
     }
-    if (progress < info.progress) {
+    if (progress_min < info.progress_min) {
         return PROGRESS_DECREASE_DENIED;
     }
     // remove bids upto the new progress
-    if (auto error = removeBids(agent_id, info.path.begin() + info.progress, info.path.begin() + progress)) {
+    if (auto error = removeBids(agent_id, info.path.begin() + info.progress_min, info.path.begin() + progress_min)) {
         return error;
     }
-    info.progress = progress;
-    info.target = std::max(info.target, progress);
+    info.progress_min = progress_min;
+    info.progress_max = std::max(info.progress_max, progress_min);
 
-    // target input checks
-    if (target < info.progress) {
-        return TARGET_BELOW_PROGRESS;
+    // progress_max input checks
+    if (progress_max < info.progress_min) {
+        return PROGRESS_MIN_EXCEED_MAX;
     }
 
-    if (target < info.target) {
-        return TARGET_DECREASE_DENIED;
+    if (progress_max < info.progress_max) {
+        return PROGRESS_DECREASE_DENIED;
     }
 
-    // claim all nodes up to target
-    for (; info.target < std::min(target + 1, info.path.size()); ++info.target) {
-        auto& path = info.path[info.target];
+    // claim all nodes up to progress_max
+    for (; info.progress_max < std::min(progress_max + 1, info.path.size()); ++info.progress_max) {
+        auto& path = info.path[info.progress_max];
         auto& auction = path.node->auction;
         auto highest = auction.getHighestBid();
         // claim until agent is no longer highest bidder
@@ -117,8 +118,8 @@ PathSync::Error PathSync::updateProgress(const std::string& agent_id, size_t pro
         }
         path.price = FLT_MAX / 2;
     }
-    --info.target;
-    return target < info.path.size() ? SUCCESS : TARGET_EXCEED_PATH_SIZE;
+    --info.progress_max;
+    return progress_max < info.path.size() ? SUCCESS : PROGRESS_EXCEED_PATH_SIZE;
 }
 
 PathSync::Error PathSync::removePath(const std::string& agent_id) {
@@ -126,7 +127,8 @@ PathSync::Error PathSync::removePath(const std::string& agent_id) {
     if (found == _paths.end()) {
         return AGENT_ID_NOT_FOUND;
     }
-    auto error = removeBids(agent_id, found->second.path.begin() + found->second.progress, found->second.path.end());
+    auto error =
+            removeBids(agent_id, found->second.path.begin() + found->second.progress_min, found->second.path.end());
     _paths.erase(found);
     return error;
 }
@@ -134,7 +136,7 @@ PathSync::Error PathSync::removePath(const std::string& agent_id) {
 PathSync::Error PathSync::clearPaths() {
     int error = SUCCESS;
     for (auto& [agent_id, info] : _paths) {
-        error |= removeBids(agent_id, info.path.begin() + info.progress, info.path.end());
+        error |= removeBids(agent_id, info.path.begin() + info.progress_min, info.path.end());
     }
     _paths.clear();
     return static_cast<Error>(error);
@@ -148,8 +150,8 @@ PathSync::WaitStatus PathSync::checkWaitStatus(const std::string& agent_id) cons
     }
     // validate path
     auto& info = found->second;
-    assert(info.progress < info.path.size());
-    for (size_t progress = info.progress; progress < info.path.size(); ++progress) {
+    assert(info.progress_min < info.path.size());
+    for (size_t progress = info.progress_min; progress < info.path.size(); ++progress) {
         auto& visit = info.path[progress];
         switch (visit.node->state) {
             case Node::DELETED:
@@ -175,13 +177,13 @@ PathSync::WaitStatus PathSync::checkWaitStatus(const std::string& agent_id) cons
     float higher_wait_duration = last_bid.higher ? last_bid.higher->waitDuration() : 0;
     float remaining_duration = std::max(prev_wait_duration, higher_wait_duration);
     // calculate blocked progress
-    size_t progress = info.progress;
+    size_t progress = info.progress_min;
     while (progress < info.path.size() &&
             info.path[progress].node->auction.getHighestBid()->second.bidder == agent_id) {
         ++progress;
     }
-    return {progress == info.progress ? SOURCE_NODE_OUTBID
-                                      : remaining_duration >= FLT_MAX ? REMAINING_DURATION_INFINITE : SUCCESS,
+    return {progress == info.progress_min ? SOURCE_NODE_OUTBID
+                                          : remaining_duration >= FLT_MAX ? REMAINING_DURATION_INFINITE : SUCCESS,
             progress, remaining_duration};
 }
 

@@ -117,10 +117,10 @@ TEST(path_sync, update_progress) {
     ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
     auto& path_info = path_sync.getPaths().at("A");
     EXPECT_EQ(path_info.path.size(), path.size());
-    EXPECT_EQ(path_info.progress, 0u);
-    EXPECT_EQ(path_info.target, 0u);
+    EXPECT_EQ(path_info.progress_min, 0u);
+    EXPECT_EQ(path_info.progress_max, 0u);
 
-    // progress input checks
+    // progress_min input checks
     ASSERT_EQ(path_sync.updateProgress("B", 0, 0, 0), PathSync::AGENT_ID_NOT_FOUND);
     ASSERT_EQ(path_sync.updateProgress("A", 0, 0, 1), PathSync::PATH_ID_MISMATCH);
     ASSERT_EQ(path_sync.updateProgress("A", path.size(), 0, 0), PathSync::PROGRESS_EXCEED_PATH_SIZE);
@@ -131,16 +131,16 @@ TEST(path_sync, update_progress) {
     ASSERT_EQ(path_sync.updateProgress("A", 5, 6, 0), PathSync::SUCCESS);
     ASSERT_EQ(path_sync.updateProgress("A", 5, 7, 0), PathSync::SUCCESS);
 
-    // target input checks
-    ASSERT_EQ(path_sync.updateProgress("A", 5, 4, 0), PathSync::TARGET_BELOW_PROGRESS);
-    ASSERT_EQ(path_sync.updateProgress("A", 5, 5, 0), PathSync::TARGET_DECREASE_DENIED);
+    // progress_max input checks
+    ASSERT_EQ(path_sync.updateProgress("A", 5, 4, 0), PathSync::PROGRESS_MIN_EXCEED_MAX);
+    ASSERT_EQ(path_sync.updateProgress("A", 5, 5, 0), PathSync::PROGRESS_DECREASE_DENIED);
 
     // first bids before updated progress should be removed
     for (size_t i = 0; i < nodes.size(); ++i) {
         EXPECT_EQ(nodes[i]->auction.getBids().size(), i < 5 ? 1u : 2u);
     }
 
-    // check that targeted nodes have claimed price
+    // check that progress ranged nodes have claimed price
     for (size_t i = 5; i < 11; ++i) {
         float price = i <= 7 ? FLT_MAX / 2 : 1;
         EXPECT_EQ(path_info.path[i].price, price);
@@ -149,20 +149,20 @@ TEST(path_sync, update_progress) {
 
     // check that progress is as expected
     EXPECT_EQ(path_sync.updateProgress("A", 0, 0, 0), PathSync::PROGRESS_DECREASE_DENIED);
-    EXPECT_EQ(path_info.progress, 5u);
-    EXPECT_EQ(path_info.target, 7u);
+    EXPECT_EQ(path_info.progress_min, 5u);
+    EXPECT_EQ(path_info.progress_max, 7u);
     EXPECT_EQ(path_info.path.size(), path.size());
 
     // check that path has been claimed up until first block
     Auction::Bid* prev = nullptr;
     ASSERT_EQ(nodes[9]->auction.insertBid("B", 2, 1, prev), Auction::SUCCESS);
-    ASSERT_EQ(path_sync.updateProgress("A", 5, 11, 0), PathSync::TARGET_EXCEED_PATH_SIZE);
+    ASSERT_EQ(path_sync.updateProgress("A", 5, 11, 0), PathSync::PROGRESS_EXCEED_PATH_SIZE);
     for (size_t i = 5; i < 11; ++i) {
         float price = i < 9 ? FLT_MAX / 2 : 1;
         EXPECT_EQ(path_info.path[i].price, price);
         EXPECT_EQ(nodes[i]->auction.getHighestBid()->first, i == 9 ? 2 : price);
     }
-    EXPECT_EQ(path_info.target, 8u);
+    EXPECT_EQ(path_info.progress_max, 8u);
 }
 
 TEST(path_sync, remove_path) {
