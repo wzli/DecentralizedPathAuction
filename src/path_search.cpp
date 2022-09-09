@@ -235,10 +235,11 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
             // skip if price is infinite
             if (bid_price >= FLT_MAX) {
                 DEBUG_PRINTF("Infinite Price\r\n");
+                continue;
             }
             // skip if there is no price gap between base bid and next higher bid
             if (higher_bid != adj_bids.end() && higher_bid->second.bidder != _config.agent_id) {
-                float mid_price = 0.5f * (bid_price + higher_bid->first);
+                float mid_price = bid_price + 0.5f (higher_bid->first - bid_price);
                 if (mid_price == bid_price || mid_price == higher_bid->first) {
                     DEBUG_PRINTF("No Price Gap\r\n");
                     continue;
@@ -377,7 +378,7 @@ float PathSearch::determinePrice(float base_price, float price_limit, float cost
         return min_price;
     }
     // take mid price if it is lower than minimum increment to avoid bidding over slot limit
-    float mid_price = (base_price + price_limit) / 2;
+    float mid_price = base_price + (price_limit - base_price) / 2;
     if (mid_price <= min_price) {
         return mid_price;
     }
