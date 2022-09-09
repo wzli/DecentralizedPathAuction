@@ -239,7 +239,7 @@ float PathSearch::findMinCostVisit(Visit& min_cost_visit, const Visit& visit, co
             }
             // skip if there is no price gap between base bid and next higher bid
             if (higher_bid != adj_bids.end() && higher_bid->second.bidder != _config.agent_id) {
-                float mid_price = bid_price + 0.5f (higher_bid->first - bid_price);
+                float mid_price = bid_price + 0.5f * (higher_bid->first - bid_price);
                 if (mid_price == bid_price || mid_price == higher_bid->first) {
                     DEBUG_PRINTF("No Price Gap\r\n");
                     continue;
