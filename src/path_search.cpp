@@ -372,6 +372,7 @@ float PathSearch::determinePrice(float base_price, float price_limit, float cost
     assert(cost <= alternative_cost);
     assert(base_price < price_limit);
     base_price = std::nextafter(base_price, FLT_MAX);
+    price_limit = std::nextafter(price_limit, -FLT_MAX);
     // just raise by price increment if alternative doesn't exist
     float min_price = base_price + _config.price_increment;
     if (alternative_cost >= FLT_MAX && price_limit >= FLT_MAX) {
