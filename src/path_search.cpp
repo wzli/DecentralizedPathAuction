@@ -103,7 +103,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
     if (src.base_price >= FLT_MAX) {
         return SOURCE_NODE_PRICE_INFINITE;
     }
-    src.price = std::max(src.price, determinePrice(src.base_price, FLT_MAX, 0, 0)) + _config.price_increment;
+    src.price = std::max(src.price, std::nextafter(src.base_price, FLT_MAX)) + _config.price_increment;
     // trivial solution
     if (checkTermination(src)) {
         src.duration = _dst_duration;
@@ -372,7 +372,6 @@ float PathSearch::determinePrice(float base_price, float price_limit, float cost
     assert(cost <= alternative_cost);
     assert(base_price < price_limit);
     base_price = std::nextafter(base_price, FLT_MAX);
-    price_limit = std::nextafter(price_limit, -FLT_MAX);
     // just raise by price increment if alternative doesn't exist
     float min_price = base_price + _config.price_increment;
     if (alternative_cost >= FLT_MAX && price_limit >= FLT_MAX) {
@@ -385,7 +384,8 @@ float PathSearch::determinePrice(float base_price, float price_limit, float cost
     }
     // willing to pay additionally up to the surplus benefit compared to best alternative
     float price = base_price + alternative_cost - cost;
-    return std::min(std::max(price, min_price), price_limit - _config.price_increment);
+    float three_quater_price = mid_price + (price_limit - mid_price) / 2;
+    return std::min(std::max(price, min_price), three_quater_price);
 }
 
 }  // namespace decentralized_path_auction

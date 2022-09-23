@@ -691,9 +691,9 @@ TEST(multi_path_search, push_line) {
                 Agent({"D"}, {nodes[0][3]}, {}),
                 Agent({"E"}, {nodes[0][4]}, {}),
                 Agent({"F"}, {nodes[0][5]}, {}),
-                Agent({"G"}, {nodes[0][6]}, {nodes[1][0]}),
+                Agent({"G", FLT_MAX, 10}, {nodes[0][6]}, {nodes[1][0]}),
         };
-        multi_iterate(agents, 100, 10000, false);
+        multi_iterate(agents, 200, 10000, false);
         for (auto& agent : agents) {
             ASSERT_GT(agent.path.back().node->position.get<1>(), 0);
         }
