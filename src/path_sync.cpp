@@ -99,7 +99,8 @@ PathSync::Error PathSync::updateProgress(
         return PROGRESS_DECREASE_DENIED;
     }
 
-    // claim all nodes up to progress_max
+    // claim all nodes up to progress_max, but skip for single node paths
+    info.progress_max += info.path.size() == 1;
     for (; info.progress_max < std::min(progress_max + 1, info.path.size()); ++info.progress_max) {
         auto& path = info.path[info.progress_max];
         auto& auction = path.node->auction;
