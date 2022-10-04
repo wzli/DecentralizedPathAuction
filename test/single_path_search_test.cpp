@@ -313,6 +313,32 @@ TEST(single_path_search, disabled_node) {
     EXPECT_EQ(path.back().node, nodes[2][9]);
 }
 
+TEST(single_path_search, no_fallback) {
+    Graph graph;
+    auto nodes = make_test_graph(graph);
+    PathSearch path_search({"A"});
+
+    // set start node as NO_FALLBACK
+    nodes[1][5]->state = Node::NO_FALLBACK;
+    Path path = {{nodes[1][5]}};
+    // request fallback path and expect path to nearest node that isn't marked NO_FALLBACK
+    ASSERT_EQ(path_search.setDestinations({}), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search.iterate(path, 200), PathSearch::SUCCESS);
+    ASSERT_EQ(path.size(), 2);
+    EXPECT_EQ(path.back().node, nodes[1][4]);
+    // request non-fallback path to start node even though it's marked NO_FALLBACK
+    ASSERT_EQ(path_search.setDestinations({nodes[1][5]}), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search.iterate(path, 200), PathSearch::SUCCESS);
+    ASSERT_EQ(path.size(), 1);
+    EXPECT_EQ(path.back().node, nodes[1][5]);
+    // request a non-fallback path from some other node to an NO_FALLBACK node
+    path = {{nodes[1][4]}};
+    ASSERT_EQ(path_search.setDestinations({nodes[1][5]}), PathSearch::SUCCESS);
+    ASSERT_EQ(path_search.iterate(path, 200), PathSearch::SUCCESS);
+    ASSERT_EQ(path.size(), 2);
+    EXPECT_EQ(path.back().node, nodes[1][5]);
+}
+
 TEST(single_path_search, graph_side_effects) {
     Graph graph;
     Nodes nodes;

@@ -93,7 +93,7 @@ PathSearch::Error PathSearch::iterate(Path& path, size_t iterations) {
         return SOURCE_NODE_DISABLED;
     }
     // check destination nodes (empty means passive and any node will suffice)
-    if (!_dst_nodes.getNodes().empty() && !_dst_nodes.findAnyNode(Node::DEFAULT)) {
+    if (!_dst_nodes.getNodes().empty() && !_dst_nodes.findAnyNode(Node::NO_FALLBACK)) {
         return DESTINATION_NODE_NO_PARKING;
     }
     // source visit is required to have the highest bid in auction to claim the source node
@@ -192,7 +192,7 @@ float PathSearch::getCostEstimate(const NodePtr& node, float base_price, const A
             cost_estimate = 0;
         } else {
             assert(Node::validate(node));
-            auto nearest_goal = _dst_nodes.findNearestNode(node->position, Node::DEFAULT);
+            auto nearest_goal = _dst_nodes.findNearestNode(node->position, Node::NO_FALLBACK);
             cost_estimate = _config.travel_time(nullptr, node, nearest_goal) * _config.time_exchange_rate;
         }
     }
@@ -341,7 +341,7 @@ bool PathSearch::checkCostLimit(const Visit& visit) const {
 
 bool PathSearch::checkTermination(const Visit& visit) const {
     // termination condition for passive paths (any parkable node where there are no lower bids)
-    return (_dst_nodes.getNodes().empty() && visit.node->state < Node::NO_PARKING &&
+    return (_dst_nodes.getNodes().empty() && visit.node->state < Node::NO_FALLBACK &&
                    visit.base_price == visit.node->auction.getBids().begin()->first) ||
            // termination condition for regular destinations
            _dst_nodes.containsNode(visit.node);

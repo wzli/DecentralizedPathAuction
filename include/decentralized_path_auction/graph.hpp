@@ -18,7 +18,7 @@ using Point = bg::model::point<float, DPA_NDIM, bg::cs::cartesian>;
 
 struct Node {
     const Point position;
-    enum State { DEFAULT, NO_PARKING, NO_STOPPING, DISABLED, DELETED } state = DEFAULT;
+    enum State { DEFAULT, NO_FALLBACK, NO_PARKING, NO_STOPPING, DISABLED, DELETED } state = DEFAULT;
     std::vector<std::shared_ptr<Node>> edges = {};
     Auction auction = {};
     void* custom_data = nullptr;
