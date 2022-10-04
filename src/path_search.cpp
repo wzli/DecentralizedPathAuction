@@ -384,8 +384,8 @@ float PathSearch::determinePrice(float base_price, float price_limit, float cost
     }
     // willing to pay additionally up to the surplus benefit compared to best alternative
     float price = base_price + alternative_cost - cost;
-    float three_quater_price = mid_price + (price_limit - mid_price) / 2;
-    return std::min(std::max(price, min_price), three_quater_price);
+    float three_quarter_price = mid_price + (price_limit - mid_price) / 2;
+    return std::clamp(price, min_price, three_quarter_price);
 }
 
 }  // namespace decentralized_path_auction
