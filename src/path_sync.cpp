@@ -25,6 +25,11 @@ PathSync::Error PathSync::updatePath(const std::string& agent_id, const Path& pa
     if (agent_id.empty()) {
         return AGENT_ID_EMPTY;
     }
+    // check path id
+    if (auto found = _paths.find(agent_id);
+            found != _paths.end() && path_id <= found->second.path_id && !found->second.path.empty()) {
+        return PATH_ID_STALE;
+    }
     if (auto path_error = validate(path)) {
         return path_error;
     }
