@@ -44,12 +44,8 @@ PathSync::Error PathSync::updatePath(const std::string& agent_id, const Path& pa
             return VISIT_PRICE_ALREADY_EXIST;
         }
     }
-    auto& info = _paths[agent_id];
-    // check path id
-    if (path_id <= info.path_id && !info.path.empty()) {
-        return PATH_ID_STALE;
-    }
     // remove old bids and insert new ones
+    auto& info = _paths[agent_id];
     auto remove_error = removeBids(agent_id, info.path.begin() + info.progress_min, info.path.end());
     auto tail_bid = insertBids(agent_id, path.begin(), path.end());
     assert(tail_bid && "insert bid failed");
