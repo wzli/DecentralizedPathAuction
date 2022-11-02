@@ -84,6 +84,7 @@ PathSync::Error PathSync::updateProgress(
     if (progress_min < info.progress_min) {
         return PROGRESS_DECREASE_DENIED;
     }
+
     // remove bids upto the new progress
     if (auto error = removeBids(agent_id, info.path.begin() + info.progress_min, info.path.begin() + progress_min)) {
         return error;
@@ -100,9 +101,10 @@ PathSync::Error PathSync::updateProgress(
         return PROGRESS_DECREASE_DENIED;
     }
 
-    // claim all nodes up to progress_max, but skip for single node paths
-    info.progress_max += info.path.size() == 1;
-    for (; info.progress_max < std::min(progress_max + 1, info.path.size()); ++info.progress_max) {
+    // claim all nodes up to progress_max
+    // except for first node of path, inorder to allow SOURCE_NODE_OUTBID to prompt user to query fallback path
+    for (info.progress_max = std::max(info.progress_max, 1lu);
+            info.progress_max < std::min(progress_max + 1, info.path.size()); ++info.progress_max) {
         auto& path = info.path[info.progress_max];
         auto& auction = path.node->auction;
         auto highest = auction.getHighestBid();
@@ -121,6 +123,7 @@ PathSync::Error PathSync::updateProgress(
         path.price = FLT_MAX / 2;
     }
     --info.progress_max;
+    assert(info.progress_max < info.path.size());
     return progress_max < info.path.size() ? SUCCESS : PROGRESS_EXCEED_PATH_SIZE;
 }
 
@@ -184,8 +187,9 @@ PathSync::WaitStatus PathSync::checkWaitStatus(const std::string& agent_id) cons
             info.path[progress].node->auction.getHighestBid()->second.bidder == agent_id) {
         ++progress;
     }
-    return {progress == info.progress_min ? SOURCE_NODE_OUTBID
-                                          : remaining_duration >= FLT_MAX ? REMAINING_DURATION_INFINITE : SUCCESS,
+    return {progress == info.progress_min   ? SOURCE_NODE_OUTBID
+            : remaining_duration >= FLT_MAX ? REMAINING_DURATION_INFINITE
+                                            : SUCCESS,
             progress, remaining_duration};
 }
 
