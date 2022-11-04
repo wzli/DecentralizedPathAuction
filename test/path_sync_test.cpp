@@ -125,13 +125,13 @@ TEST(path_sync, update_progress) {
     ASSERT_EQ(path_sync.updateProgress("A", 0, 0, 1), PathSync::PATH_ID_MISMATCH);
     ASSERT_EQ(path_sync.updateProgress("A", path.size(), 0, 0), PathSync::PROGRESS_EXCEED_PATH_SIZE);
 
-    // check that first node is not claimed
+    // check that first node is not claimed when progress max is zero
     ASSERT_EQ(path_sync.updateProgress("A", 0, 0, 0), PathSync::SUCCESS);
     EXPECT_EQ(path_info.path[0].price, 1);
     EXPECT_EQ(nodes[0]->auction.getHighestBid()->first, 1);
     ASSERT_EQ(path_sync.updateProgress("A", 0, 3, 0), PathSync::SUCCESS);
-    EXPECT_EQ(path_info.path[0].price, 1);
-    EXPECT_EQ(nodes[0]->auction.getHighestBid()->first, 1);
+    EXPECT_NE(path_info.path[0].price, 1);
+    EXPECT_NE(nodes[0]->auction.getHighestBid()->first, 1);
 
     // succeed
     ASSERT_EQ(path_sync.updateProgress("A", 5, 5, 0), PathSync::SUCCESS);

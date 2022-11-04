@@ -101,10 +101,14 @@ PathSync::Error PathSync::updateProgress(
         return PROGRESS_DECREASE_DENIED;
     }
 
+    // don't claim nodes unless path has progressed
+    // inorder to allow SOURCE_NODE_OUTBID to prompt user to query fallback path before that point
+    if (progress_max == 0) {
+        return SUCCESS;
+    }
+
     // claim all nodes up to progress_max
-    // except for first node of path, inorder to allow SOURCE_NODE_OUTBID to prompt user to query fallback path
-    for (info.progress_max = std::max(info.progress_max, 1lu);
-            info.progress_max < std::min(progress_max + 1, info.path.size()); ++info.progress_max) {
+    for (; info.progress_max < std::min(progress_max + 1, info.path.size()); ++info.progress_max) {
         auto& path = info.path[info.progress_max];
         auto& auction = path.node->auction;
         auto highest = auction.getHighestBid();
