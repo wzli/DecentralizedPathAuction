@@ -64,24 +64,40 @@ PathSync::Error PathSync::updatePath(const std::string& agent_id, const Path& pa
         return PATH_CAUSES_CYCLE;
     }
     // update path
-    info = {path, path_id, 0};
+    info = {path, path_id, 0, 0};
     return remove_error;
 }
 
 PathSync::Error PathSync::updateProgress(
         const std::string& agent_id, size_t progress_min, size_t progress_max, size_t path_id) {
+    // input checks
     auto found = _paths.find(agent_id);
     if (found == _paths.end()) {
         return AGENT_ID_NOT_FOUND;
     }
+
     auto& info = found->second;
     if (path_id != info.path_id) {
         return PATH_ID_MISMATCH;
     }
+
     if (progress_min >= info.path.size()) {
         return PROGRESS_EXCEED_PATH_SIZE;
     }
+
+    if (progress_max >= info.path.size()) {
+        return PROGRESS_EXCEED_PATH_SIZE;
+    }
+
+    if (progress_max < progress_min) {
+        return PROGRESS_MIN_EXCEED_MAX;
+    }
+
     if (progress_min < info.progress_min) {
+        return PROGRESS_DECREASE_DENIED;
+    }
+
+    if (progress_max < info.progress_max) {
         return PROGRESS_DECREASE_DENIED;
     }
 
@@ -92,18 +108,9 @@ PathSync::Error PathSync::updateProgress(
     info.progress_min = progress_min;
     info.progress_max = std::max(info.progress_max, progress_min);
 
-    // progress_max input checks
-    if (progress_max < info.progress_min) {
-        return PROGRESS_MIN_EXCEED_MAX;
-    }
-
-    if (progress_max < info.progress_max) {
-        return PROGRESS_DECREASE_DENIED;
-    }
-
     // don't claim nodes unless path has progressed
     // inorder to allow SOURCE_NODE_OUTBID to prompt user to query fallback path before that point
-    if (progress_max == 0) {
+    if (progress_max == progress_min) {
         return SUCCESS;
     }
 
@@ -117,18 +124,22 @@ PathSync::Error PathSync::updateProgress(
             break;
         }
         // skip already claimed nodes
-        if (highest->first >= FLT_MAX / 2) {
+        if (highest->first >= FLT_MAX) {
             continue;
         }
-        // claimed nodes with price FLT_MAX / 2
-        if (auction.changeBid(highest->first, FLT_MAX / 2)) {
+        // claimed nodes with price FLT_MAX
+        if (auction.changeBid(highest->first, FLT_MAX)) {
             assert(!"could not change bid");
         }
-        path.price = FLT_MAX / 2;
+        path.price = FLT_MAX;
     }
     --info.progress_max;
     assert(info.progress_max < info.path.size());
-    return progress_max < info.path.size() ? SUCCESS : PROGRESS_EXCEED_PATH_SIZE;
+    // warn if desired progress_max couldn't be claimed
+    if (info.progress_max < progress_max) {
+        return PROGRESS_RANGE_CONFLICT;
+    }
+    return SUCCESS;
 }
 
 PathSync::Error PathSync::removePath(const std::string& agent_id) {
@@ -189,6 +200,15 @@ PathSync::WaitStatus PathSync::checkWaitStatus(const std::string& agent_id) cons
     size_t progress = info.progress_min;
     while (progress < info.path.size() &&
             info.path[progress].node->auction.getHighestBid()->second.bidder == agent_id) {
+        // consider any path with progress_min == progress_max as blocked at that node
+        auto& bids = info.path[progress].node->auction.getBids();
+        if (progress > info.progress_min && std::any_of(std::next(bids.begin()), bids.end(), [&](const auto& bid) {
+                auto& other_info = _paths.at(bid.second.bidder);
+                return agent_id != bid.second.bidder && other_info.progress_min == other_info.progress_max &&
+                       info.path[progress].node == other_info.path[other_info.progress_min].node;
+            })) {
+            break;
+        }
         ++progress;
     }
     return {progress == info.progress_min   ? SOURCE_NODE_OUTBID

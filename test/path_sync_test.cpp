@@ -141,38 +141,69 @@ TEST(path_sync, update_progress) {
     ASSERT_EQ(path_sync.updateProgress("A", 5, 6, 0), PathSync::SUCCESS);
     ASSERT_EQ(path_sync.updateProgress("A", 5, 7, 0), PathSync::SUCCESS);
 
-    // progress_max input checks
+    // check that progress is as expected
     ASSERT_EQ(path_sync.updateProgress("A", 5, 4, 0), PathSync::PROGRESS_MIN_EXCEED_MAX);
     ASSERT_EQ(path_sync.updateProgress("A", 5, 5, 0), PathSync::PROGRESS_DECREASE_DENIED);
+    EXPECT_EQ(path_sync.updateProgress("A", 4, 7, 0), PathSync::PROGRESS_DECREASE_DENIED);
+    EXPECT_EQ(path_info.progress_min, 5u);
+    EXPECT_EQ(path_info.progress_max, 7u);
+    EXPECT_EQ(path_info.path.size(), path.size());
 
     // first bids before updated progress should be removed
     for (size_t i = 0; i < nodes.size(); ++i) {
         EXPECT_EQ(nodes[i]->auction.getBids().size(), i < 5 ? 1u : 2u);
     }
 
-    // check that progress ranged nodes have claimed price
+    // check that nodes between progress_min and progress_max have claimed price
     for (size_t i = 5; i < 11; ++i) {
-        float price = i <= 7 ? FLT_MAX / 2 : 1;
+        float price = i <= 7 ? FLT_MAX : 1;
         EXPECT_EQ(path_info.path[i].price, price);
         EXPECT_EQ(nodes[i]->auction.getHighestBid()->first, price);
     }
 
-    // check that progress is as expected
-    EXPECT_EQ(path_sync.updateProgress("A", 0, 0, 0), PathSync::PROGRESS_DECREASE_DENIED);
-    EXPECT_EQ(path_info.progress_min, 5u);
-    EXPECT_EQ(path_info.progress_max, 7u);
-    EXPECT_EQ(path_info.path.size(), path.size());
-
     // check that path has been claimed up until first block
     Auction::Bid* prev = nullptr;
     ASSERT_EQ(nodes[9]->auction.insertBid("B", 2, 1, prev), Auction::SUCCESS);
-    ASSERT_EQ(path_sync.updateProgress("A", 5, 11, 0), PathSync::PROGRESS_EXCEED_PATH_SIZE);
+    ASSERT_EQ(path_sync.updateProgress("A", 5, 10, 0), PathSync::PROGRESS_RANGE_CONFLICT);
     for (size_t i = 5; i < 11; ++i) {
-        float price = i < 9 ? FLT_MAX / 2 : 1;
+        float price = i < 9 ? FLT_MAX : 1;
         EXPECT_EQ(path_info.path[i].price, price);
         EXPECT_EQ(nodes[i]->auction.getHighestBid()->first, i == 9 ? 2 : price);
     }
     EXPECT_EQ(path_info.progress_max, 8u);
+}
+
+TEST(path_sync, update_progress_repeat_node) {
+    Graph graph;
+    Nodes nodes;
+    PathSync path_sync;
+    make_pathway(graph, nodes, {0, 0}, {2, 2}, 3);
+    Path path;
+    // make a path with a repeat node
+    // A -> B -> A -> C
+    path.push_back(Visit{nodes[0], 2, 1});
+    path.push_back(Visit{nodes[1], 1, 1});
+    path.push_back(Visit{nodes[0], 1, 1});
+    path.push_back(Visit{nodes[2], 1, 1});
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
+
+    // block node C
+    Auction::Bid* prev = nullptr;
+    ASSERT_EQ(nodes[2]->auction.insertBid("B", 2, 1, prev), Auction::SUCCESS);
+
+    // expect first path to blocked at last node
+    auto ret = path_sync.checkWaitStatus("A");
+    ASSERT_EQ(ret.error, PathSync::SUCCESS);
+    ASSERT_EQ(ret.blocked_progress, 3);
+
+    // update progress of first robot upto blocked progress
+    ASSERT_EQ(path_sync.updateProgress("A", 0, 2, 0), PathSync::SUCCESS);
+
+    // expect progress to be updated as expected
+    auto& path_info = path_sync.getPaths().at("A");
+    EXPECT_EQ(path_info.path.size(), path.size());
+    EXPECT_EQ(path_info.progress_min, 0u);
+    EXPECT_EQ(path_info.progress_max, 2u);
 }
 
 TEST(path_sync, remove_path) {
@@ -275,6 +306,14 @@ TEST(path_sync, check_wait_conditions) {
     EXPECT_EQ(error, PathSync::SUCCESS);
     EXPECT_EQ(blocked_progress, path.size());
     EXPECT_EQ(remaining_duration, path.size() - 1);
+
+    // check stationary block (B blocks because B's progress_min == progress_max, even though price is lower)
+    ASSERT_EQ(path_sync.removePath("A"), PathSync::SUCCESS);
+    ASSERT_EQ(path_sync.updatePath("B", {{nodes[5], 1, 1}}, 0), PathSync::SUCCESS);
+    ASSERT_EQ(path_sync.updatePath("A", path, 0), PathSync::SUCCESS);
+    ret = path_sync.checkWaitStatus("A");
+    EXPECT_EQ(blocked_progress, 5);
+    ASSERT_EQ(path_sync.removePath("B"), PathSync::SUCCESS);
 
     // intersecting path with lower bid
     {

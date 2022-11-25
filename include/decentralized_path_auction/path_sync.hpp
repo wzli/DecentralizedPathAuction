@@ -28,6 +28,7 @@ public:
         PROGRESS_DECREASE_DENIED,
         PROGRESS_EXCEED_PATH_SIZE,
         PROGRESS_MIN_EXCEED_MAX,
+        PROGRESS_RANGE_CONFLICT,
     };
 
     struct PathInfo {
